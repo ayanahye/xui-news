@@ -2,52 +2,241 @@
 <html>
 <head>
   <title>Explainable News Classifier</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    textarea { width: 100%; }
-    #visualization { margin-top: 30px; }
-    #exampleSelect { width: 100%; padding: 6px; margin-bottom: 10px; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(120deg, #7b5cff 0%, #3a8dff 100%);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .site-header {
+      width: 100%;
+      background: #fff;
+      box-shadow: 0 2px 16px 0 rgba(90, 80, 200, 0.10);
+      padding: 32px 0 24px 0;
+      text-align: center;
+      font-size: 2.5em;
+      font-weight: 700;
+      color: #4a3fbf;
+      letter-spacing: -1px;
+      text-shadow: 0 2px 12px #7b5cff22;
+    }
+    .dashboard-container {
+      max-width: 950px;
+      margin: 32px auto 0 auto;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 6px 32px 0 rgba(90, 80, 200, 0.13);
+      padding: 0 38px 38px 38px;
+    }
+    .widget-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2.5px solid #e0e6f7;
+      margin-bottom: 32px;
+      margin-top: 0;
+    }
+    .widget-tab {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      font-size: 1.22em;
+      font-weight: 600;
+      padding: 18px 0 14px 0;
+      color: #7b5cff;
+      cursor: pointer;
+      border-bottom: 4px solid transparent;
+      transition: color 0.2s, border-bottom 0.2s, background 0.2s;
+      background: linear-gradient(90deg, #7b5cff05 0%, #3a8dff05 100%);
+    }
+    .widget-tab.active {
+      color: #fff;
+      background: linear-gradient(90deg, #7b5cff 0%, #3a8dff 100%);
+      border-bottom: 4px solid #3a8dff;
+      border-radius: 12px 12px 0 0;
+      box-shadow: 0 2px 8px #7b5cff22;
+    }
+    .widget-content {
+      padding-top: 28px;
+    }
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .form-group {
+      flex: 1 1 320px;
+      display: flex;
+      flex-direction: column;
+    }
+    .form-group label {
+      font-weight: 500;
+      color: #4a3fbf;
+      margin-bottom: 6px;
+    }
+    textarea, select {
+      border: 1.5px solid #a3a0ff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 1em;
+      background: #f0f3ff;
+      transition: border 0.2s;
+      resize: vertical;
+      color: #3a3c8c;
+    }
+    textarea:focus, select:focus {
+      border-color: #3a5cff;
+      outline: none;
+      background: #fff;
+    }
+    #exampleSelect {
+      font-size: 1em;
+      margin-bottom: 0;
+    }
+    .actions-row {
+      display: flex;
+      align-items: center; 
+      gap: 18px;
+      margin-bottom: 10px;
+      margin-top: 10px;
+    }
+    .actions-row label {
+      margin-bottom: 0;
+    }
+    .dashboard-btn {
+      background: linear-gradient(90deg, #7b5cff 0%, #3a8dff 100%);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0 32px;
+      font-size: 1.08em;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 12px #7b5cff88;
+      transition: background 0.2s, transform 0.1s;
+      height: 40px; 
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .dashboard-btn:hover {
+      background: linear-gradient(90deg, #3a8dff 0%, #7b5cff 100%);
+      transform: translateY(-2px) scale(1.03);
+    }
+    .predicted-category {
+      font-size: 1.18em;
+      font-weight: 500;
+      color: #4a3fbf;
+      margin: 26px 0 10px 0;
+      letter-spacing: 0.5px;
+    }
+    #visualization {
+      margin-top: 18px;
+      background: #f0f3ff;
+      border-radius: 10px;
+      min-height: 60px;
+      padding: 18px 16px;
+      box-shadow: 0 1px 8px 0 rgba(90, 80, 200, 0.07);
+      overflow-x: auto;
+    }
+    .widget-maintenance {
+      background: linear-gradient(90deg, #7b5cff 0%, #3a8dff 100%);
+      border-radius: 14px;
+      color: #fff;
+      padding: 38px 28px 38px 28px;
+      font-size: 1.25em;
+      font-weight: 500;
+      box-shadow: 0 2px 16px 0 rgba(90, 80, 200, 0.10);
+      text-align: center;
+      margin-top: 12px;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+    @media (max-width: 700px) {
+      .dashboard-container { padding: 0 4vw 18px 4vw; }
+      .form-row { flex-direction: column; gap: 0; }
+      .actions-row { flex-direction: column; align-items: stretch; gap: 8px; }
+      #visualization { padding: 10px 4px; }
+      .dashboard-btn { width: 100%; height: 44px; }
+      .widget-tabs { flex-direction: column; }
+      .widget-tab { border-radius: 12px 12px 0 0; }
+    }
   </style>
 </head>
 <body>
-  <h2>Explainable News Classifier</h2>
-
-  <label for="exampleSelect"><b>Choose Example:</b></label>
-  <select id="exampleSelect">
-    <option value="">-- Select a news example --</option>
-  </select>
-  <br><br>
-
-  <label>Headline:</label>
-  <textarea id="headlineInput" rows="2" placeholder="Enter headline..."></textarea><br><br>
-
-  <label>Short Description:</label>
-  <textarea id="shortDescriptionInput" rows="2" placeholder="Enter short description..."></textarea><br><br>
-
-  <label>Authors:</label>
-  <textarea id="authorsInput" rows="1" placeholder="Enter authors..."></textarea><br><br>
-
-  <label>Method:</label>
-  <select id="methodSelect" onchange="toggleShapPlotType()">
-    <option value="SHAP">SHAP</option>
-    <option value="LIME">LIME</option>
-  </select>
-  <span id="shapPlotTypeContainer">
-    <label>SHAP Plot Type:</label>
-    <select id="plotTypeSelect">
-      <option value="force">Force (local)</option>
-      <option value="beeswarm">Beeswarm (global)</option>
-      <option value="summary">Summary (global)</option>
-      <option value="waterfall">Waterfall (local)</option>
-    </select>
-  </span>
-  <button onclick="getExplanation()">Explain</button>
-
-  <h3>Predicted Category: <span id="predClass"></span></h3>
-  <div id="visualization"></div>
-
+  <div class="site-header">Explainable News Classifier</div>
+  <div class="dashboard-container">
+    <div class="widget-tabs">
+      <button class="widget-tab active" id="tab-predict" onclick="showWidget('predict')">News Category Prediction</button>
+      <button class="widget-tab" id="tab-feature" onclick="showWidget('feature')">Feature Engineering</button>
+    </div>
+    <div class="widget-content" id="widget-predict">
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label for="exampleSelect">Choose Example</label>
+          <select id="exampleSelect">
+            <option value="">-- Select a news example --</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label for="authorsInput">Authors</label>
+          <textarea id="authorsInput" rows="1" placeholder="enter authors..."></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="headlineInput">Headline</label>
+          <textarea id="headlineInput" rows="2" placeholder="enter headline..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="shortDescriptionInput">Short Description</label>
+          <textarea id="shortDescriptionInput" rows="2" placeholder="enter short description..."></textarea>
+        </div>
+      </div>
+      <div class="actions-row">
+        <div class="form-group" style="flex:0.5">
+          <label for="methodSelect">Method</label>
+          <select id="methodSelect" onchange="toggleShapPlotType()">
+            <option value="SHAP">SHAP</option>
+            <option value="LIME">LIME</option>
+          </select>
+        </div>
+        <div class="form-group" id="shapPlotTypeContainer" style="flex:0.7">
+          <label for="plotTypeSelect">SHAP Plot Type</label>
+          <select id="plotTypeSelect">
+            <option value="force">Force (local)</option>
+            <option value="beeswarm">Beeswarm (global)</option>
+            <option value="summary">Summary (global)</option>
+            <option value="waterfall">Waterfall (local)</option>
+          </select>
+        </div>
+        <button class="dashboard-btn" onclick="getExplanation()">Explain</button>
+      </div>
+      <div class="predicted-category">
+        Predicted Category: <span id="predClass"></span>
+      </div>
+      <div id="visualization"></div>
+    </div>
+    <div class="widget-content" id="widget-feature" style="display:none;">
+      <div class="widget-maintenance">
+        🚧 Feature Engineering component is under maintenance.<br>
+        This will be implemented some time
+      </div>
+    </div>
+  </div>
   <script>
+    function showWidget(widget) {
+      document.getElementById('widget-predict').style.display = widget === 'predict' ? '' : 'none';
+      document.getElementById('widget-feature').style.display = widget === 'feature' ? '' : 'none';
+      document.getElementById('tab-predict').classList.toggle('active', widget === 'predict');
+      document.getElementById('tab-feature').classList.toggle('active', widget === 'feature');
+    }
     async function loadSampledArticles() {
       const response = await fetch('/sampled_articles');
       const articles = await response.json();
@@ -61,7 +250,6 @@
         option.dataset.authors = article.authors;
         select.appendChild(option);
       });
-
       select.onchange = function() {
         const selected = select.options[select.selectedIndex];
         if (selected.value !== "") {
@@ -76,14 +264,12 @@
       };
     }
     window.onload = loadSampledArticles;
-
     function toggleShapPlotType() {
       const method = document.getElementById("methodSelect").value;
       document.getElementById("shapPlotTypeContainer").style.display =
-        (method === "SHAP") ? "inline" : "none";
+        (method === "SHAP") ? "block" : "none";
     }
     toggleShapPlotType();
-
     async function getExplanation() {
       const headline = document.getElementById("headlineInput").value;
       const shortDescription = document.getElementById("shortDescriptionInput").value;
@@ -91,34 +277,24 @@
       const combinedText = headline + " " + shortDescription + " " + authors;
       const method = document.getElementById("methodSelect").value;
       const plotType = document.getElementById("plotTypeSelect").value;
-
-      document.getElementById("visualization").innerHTML = "Loading...";
-
+      document.getElementById("visualization").innerHTML = "<span style='color:#4a3fbf'>Loading...</span>";
       const payload = {
         combined_text: combinedText,
         method: method,
         plot_type: plotType
       };
-
       const response = await fetch('/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-
       let data;
       if (method === "SHAP" && (plotType === "beeswarm" || plotType === "summary" || plotType === "waterfall")) {
         data = await response.text();
       } else {
         data = await response.json();
       }
-
-      if (method === "Influence") {
-        document.getElementById("visualization").innerHTML =
-          "<ul>" + data.influential_examples.map(ex =>
-            `<li><b>${ex.category}</b>: ${ex.headline}</li>`).join("") + "</ul>";
-        document.getElementById("predClass").innerText = data.predicted_class || "";
-      } else if (method === "LIME") {
+      if (method === "LIME") {
         document.getElementById("visualization").innerHTML = data.visualization;
         const scriptTags = document.getElementById("visualization").getElementsByTagName('script');
         for (let i = 0; i < scriptTags.length; i++) {
