@@ -7,10 +7,17 @@
     body { font-family: Arial, sans-serif; margin: 40px; }
     textarea { width: 100%; }
     #visualization { margin-top: 30px; }
+    #exampleSelect { width: 100%; padding: 6px; margin-bottom: 10px; }
   </style>
 </head>
 <body>
   <h2>Explainable News Classifier</h2>
+
+  <label for="exampleSelect"><b>Choose Example:</b></label>
+  <select id="exampleSelect">
+    <option value="">-- Select a news example --</option>
+  </select>
+  <br><br>
 
   <label>Headline:</label>
   <textarea id="headlineInput" rows="2" placeholder="Enter headline..."></textarea><br><br>
@@ -25,7 +32,6 @@
   <select id="methodSelect" onchange="toggleShapPlotType()">
     <option value="SHAP">SHAP</option>
     <option value="LIME">LIME</option>
-    <option value="Influence">Influence</option>
   </select>
   <span id="shapPlotTypeContainer">
     <label>SHAP Plot Type:</label>
@@ -42,6 +48,35 @@
   <div id="visualization"></div>
 
   <script>
+    async function loadSampledArticles() {
+      const response = await fetch('/sampled_articles');
+      const articles = await response.json();
+      const select = document.getElementById('exampleSelect');
+      articles.forEach((article, idx) => {
+        const option = document.createElement('option');
+        option.value = idx;
+        option.text = `[${article.category}] ${article.headline.slice(0, 60)}...`;
+        option.dataset.headline = article.headline;
+        option.dataset.shortDescription = article.short_description;
+        option.dataset.authors = article.authors;
+        select.appendChild(option);
+      });
+
+      select.onchange = function() {
+        const selected = select.options[select.selectedIndex];
+        if (selected.value !== "") {
+          document.getElementById('headlineInput').value = selected.dataset.headline;
+          document.getElementById('shortDescriptionInput').value = selected.dataset.shortDescription;
+          document.getElementById('authorsInput').value = selected.dataset.authors;
+        } else {
+          document.getElementById('headlineInput').value = "";
+          document.getElementById('shortDescriptionInput').value = "";
+          document.getElementById('authorsInput').value = "";
+        }
+      };
+    }
+    window.onload = loadSampledArticles;
+
     function toggleShapPlotType() {
       const method = document.getElementById("methodSelect").value;
       document.getElementById("shapPlotTypeContainer").style.display =

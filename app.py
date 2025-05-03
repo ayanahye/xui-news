@@ -1,9 +1,17 @@
 from flask import Flask, request, jsonify, send_from_directory, Response
+import pandas as pd
 from explanations.shap_explainer import ShapExplainer
 from explanations.lime_explainer import explain_with_lime
 import os
 
 app = Flask(__name__)
+
+# might be better to send this data to the explainers
+df = pd.read_json("News_Category_Dataset_v3.json", lines=True)
+df['combined_text'] = df['headline'] + " " + df['short_description'] + " " + df['authors'].fillna('')
+categories = df['category'].unique()
+selected_categories = pd.Series(categories).sample(n=3, random_state=42).tolist()
+df_sampled = df[df['category'].isin(selected_categories)].sample(n=500, random_state=42)
 
 shap_explainer = ShapExplainer()
 
@@ -34,6 +42,15 @@ def explain():
     except Exception as e:
         print(f"API Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/sampled_articles')
+def sampled_articles():
+    articles = []
+    per_category = 3  
+    for cat in selected_categories:
+        cat_articles = df_sampled[df_sampled['category'] == cat].sample(n=per_category, random_state=1)
+        articles.extend(cat_articles[['headline', 'short_description', 'authors', 'category']].to_dict(orient='records'))
+    return jsonify(articles)
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
