@@ -32,19 +32,47 @@ model.fit(X_train, y_train)
 feature_names = vectorizer.get_feature_names_out()
 explainer = shap.Explainer(model, X_train, feature_names=feature_names)
 
+def get_shap_and_base(shap_values, sample_idx, class_idx):
+    if len(shap_values.values.shape) == 3:
+        shap_arr = shap_values.values[sample_idx, :, class_idx]
+        base_val = shap_values.base_values[sample_idx, class_idx]
+    elif len(shap_values.values.shape) == 2:
+        shap_arr = shap_values.values[sample_idx, :]
+        base_val = shap_values.base_values[sample_idx]
+    else:
+        raise ValueError("SH values shape: {}".format(shap_values.values.shape))
+    return shap_arr, base_val
+
+def get_top_features(features, shap_vals, feature_names, top_n=15):
+    top_idx = np.argsort(np.abs(shap_vals))[-top_n:]
+    filtered_shap = np.zeros_like(shap_vals)
+    filtered_features = np.zeros_like(features)
+    filtered_shap[top_idx] = shap_vals[top_idx]
+    filtered_features[top_idx] = features[top_idx]
+    return pd.Series(filtered_features, index=feature_names), filtered_shap
+
 def beeswarm_plotly(shap_values, feature_names, class_idx=0, max_display=20):
-    mean_abs_shap = np.abs(shap_values.values[:,:,class_idx]).mean(axis=0)
+    if len(shap_values.values.shape) == 3:
+        mean_abs_shap = np.abs(shap_values.values[:,:,class_idx]).mean(axis=0)
+        vals = shap_values.values[:,:,class_idx]
+    else:
+        mean_abs_shap = np.abs(shap_values.values).mean(axis=0)
+        vals = shap_values.values
+        class_idx = 0  # not used
     top_idx = np.argsort(mean_abs_shap)[-max_display:]
     df = pd.DataFrame({
-        "feature": np.repeat([feature_names[i] for i in top_idx], shap_values.values.shape[0]),
-        "shap_value": shap_values.values[:,top_idx,class_idx].flatten()
+        "feature": np.repeat([feature_names[i] for i in top_idx], vals.shape[0]),
+        "shap_value": vals[:,top_idx].flatten()
     })
     fig = px.strip(df, x="shap_value", y="feature", orientation="h", title="Beeswarm Plot (Interactive)")
     fig.update_layout(height=600)
     return fig.to_html(full_html=False, include_plotlyjs='cdn')
 
 def summary_plotly(shap_values, feature_names, class_idx=0, max_display=20):
-    mean_abs_shap = np.abs(shap_values.values[:,:,class_idx]).mean(axis=0)
+    if len(shap_values.values.shape) == 3:
+        mean_abs_shap = np.abs(shap_values.values[:,:,class_idx]).mean(axis=0)
+    else:
+        mean_abs_shap = np.abs(shap_values.values).mean(axis=0)
     top_idx = np.argsort(mean_abs_shap)[-max_display:]
     df = pd.DataFrame({
         "feature": [feature_names[i] for i in top_idx],
@@ -55,7 +83,6 @@ def summary_plotly(shap_values, feature_names, class_idx=0, max_display=20):
     return fig.to_html(full_html=False, include_plotlyjs='cdn')
 
 def waterfall_plotly(shap_values, feature_names, ind=0, class_idx=0, max_display=10):
-    import plotly.graph_objects as go
     if len(shap_values.values.shape) == 3:
         values = shap_values.values[ind, :, class_idx]
         base_value = shap_values.base_values[ind, class_idx]
@@ -95,12 +122,14 @@ class ShapExplainer:
         html = None
 
         if plot_type == "force":
-            # force is not working... feature names all clumped to the side
-            features_df = pd.DataFrame([X_instance[0]], columns=feature_names)
-            print(feature_names)
+            shap_arr, base_val = get_shap_and_base(shap_values, 0, prediction)
+            filtered_features, filtered_shap = get_top_features(
+                X_instance[0], shap_arr, feature_names, top_n=15
+            )
             html = shap.plots.force(
-                shap_values[0, :, prediction],
-                features=features_df.iloc[0],
+                base_value=base_val,
+                shap_values=filtered_shap,
+                features=filtered_features,
                 feature_names=feature_names,
                 matplotlib=False
             )
