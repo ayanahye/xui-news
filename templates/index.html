@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Explain a News Headline</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+  <h2>Explainable News Classifier</h2>
+
+  <label>Headline:</label>
+  <textarea id="headlineInput" rows="3" cols="60" placeholder="Enter headline..."></textarea><br><br>
+
+  <label>Short Description:</label>
+  <textarea id="shortDescriptionInput" rows="3" cols="60" placeholder="Enter short description..."></textarea><br><br>
+
+  <label>Authors:</label>
+  <textarea id="authorsInput" rows="3" cols="60" placeholder="Enter authors..."></textarea><br><br>
+
+  <label>Method:</label>
+  <select id="methodSelect">
+    <option value="SHAP">SHAP</option>
+    <option value="LIME">LIME</option>
+    <option value="Influence">Influence</option>
+  </select>
+  <button onclick="getExplanation()">Explain</button>
+
+  <h3>Predicted Category: <span id="predClass"></span></h3>
+  <div id="visualization"></div>
+
+  <script>
+    async function getExplanation() {
+      const headline = document.getElementById("headlineInput").value;
+      const shortDescription = document.getElementById("shortDescriptionInput").value;
+      const authors = document.getElementById("authorsInput").value;
+
+      const combinedText = headline + " " + shortDescription + " " + authors;
+
+      const method = document.getElementById("methodSelect").value;
+
+      const response = await fetch('/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ combined_text: combinedText, method: method })
+      });
+
+      const data = await response.json();
+      document.getElementById("predClass").innerText = data.predicted_class;
+
+      if (method === "Influence") {
+        document.getElementById("visualization").innerHTML =
+          "<ul>" + data.influential_examples.map(ex =>
+            `<li><b>${ex.category}</b>: ${ex.headline}</li>`).join("") + "</ul>";
+      } else if (method === "LIME") {
+        document.getElementById("visualization").innerHTML = data.visualization;
+        const scriptTags = document.getElementById("visualization").getElementsByTagName('script');
+        for (let i = 0; i < scriptTags.length; i++) {
+          eval(scriptTags[i].innerText);  
+        }
+
+      } else {
+        document.getElementById("visualization").innerHTML = data.visualization;
+      }
+    }
+  </script>
+</body>
+</html>
