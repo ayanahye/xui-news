@@ -1,64 +1,108 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Explain a News Headline</title>
+  <title>Explainable News Classifier</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    textarea { width: 100%; }
+    #visualization { margin-top: 30px; }
+  </style>
 </head>
 <body>
   <h2>Explainable News Classifier</h2>
 
   <label>Headline:</label>
-  <textarea id="headlineInput" rows="3" cols="60" placeholder="Enter headline..."></textarea><br><br>
+  <textarea id="headlineInput" rows="2" placeholder="Enter headline..."></textarea><br><br>
 
   <label>Short Description:</label>
-  <textarea id="shortDescriptionInput" rows="3" cols="60" placeholder="Enter short description..."></textarea><br><br>
+  <textarea id="shortDescriptionInput" rows="2" placeholder="Enter short description..."></textarea><br><br>
 
   <label>Authors:</label>
-  <textarea id="authorsInput" rows="3" cols="60" placeholder="Enter authors..."></textarea><br><br>
+  <textarea id="authorsInput" rows="1" placeholder="Enter authors..."></textarea><br><br>
 
   <label>Method:</label>
-  <select id="methodSelect">
+  <select id="methodSelect" onchange="toggleShapPlotType()">
     <option value="SHAP">SHAP</option>
     <option value="LIME">LIME</option>
     <option value="Influence">Influence</option>
   </select>
+  <span id="shapPlotTypeContainer">
+    <label>SHAP Plot Type:</label>
+    <select id="plotTypeSelect">
+      <option value="force">Force (local)</option>
+      <option value="beeswarm">Beeswarm (global)</option>
+      <option value="summary">Summary (global)</option>
+      <option value="waterfall">Waterfall (local)</option>
+    </select>
+  </span>
   <button onclick="getExplanation()">Explain</button>
 
   <h3>Predicted Category: <span id="predClass"></span></h3>
   <div id="visualization"></div>
 
   <script>
+    function toggleShapPlotType() {
+      const method = document.getElementById("methodSelect").value;
+      document.getElementById("shapPlotTypeContainer").style.display =
+        (method === "SHAP") ? "inline" : "none";
+    }
+    toggleShapPlotType();
+
     async function getExplanation() {
       const headline = document.getElementById("headlineInput").value;
       const shortDescription = document.getElementById("shortDescriptionInput").value;
       const authors = document.getElementById("authorsInput").value;
-
       const combinedText = headline + " " + shortDescription + " " + authors;
-
       const method = document.getElementById("methodSelect").value;
+      const plotType = document.getElementById("plotTypeSelect").value;
+
+      document.getElementById("visualization").innerHTML = "Loading...";
+
+      const payload = {
+        combined_text: combinedText,
+        method: method,
+        plot_type: plotType
+      };
 
       const response = await fetch('/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ combined_text: combinedText, method: method })
+        body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
-      document.getElementById("predClass").innerText = data.predicted_class;
+      let data;
+      if (method === "SHAP" && (plotType === "beeswarm" || plotType === "summary" || plotType === "waterfall")) {
+        data = await response.text();
+      } else {
+        data = await response.json();
+      }
 
       if (method === "Influence") {
         document.getElementById("visualization").innerHTML =
           "<ul>" + data.influential_examples.map(ex =>
             `<li><b>${ex.category}</b>: ${ex.headline}</li>`).join("") + "</ul>";
+        document.getElementById("predClass").innerText = data.predicted_class || "";
       } else if (method === "LIME") {
         document.getElementById("visualization").innerHTML = data.visualization;
         const scriptTags = document.getElementById("visualization").getElementsByTagName('script');
         for (let i = 0; i < scriptTags.length; i++) {
-          eval(scriptTags[i].innerText);  
+          eval(scriptTags[i].innerText);
         }
-
+        document.getElementById("predClass").innerText = data.predicted_class || "";
+      } else if (method === "SHAP" && plotType === "force") {
+        document.getElementById("visualization").innerHTML =
+          `<iframe id="shapFrame" width="100%" height="350" frameborder="0"></iframe>`;
+        document.getElementById("shapFrame").srcdoc = data.visualization;
+        document.getElementById("predClass").innerText = data.predicted_class || "";
+      } else if (method === "SHAP" && (plotType === "beeswarm" || plotType === "summary" || plotType === "waterfall")) {
+        document.getElementById("visualization").innerHTML =
+          `<iframe id="plotlyFrame" width="100%" height="600" frameborder="0"></iframe>`;
+        document.getElementById("plotlyFrame").srcdoc = data;
+        document.getElementById("predClass").innerText = ""; 
       } else {
-        document.getElementById("visualization").innerHTML = data.visualization;
+        document.getElementById("visualization").innerHTML = "<em>No visualization available.</em>";
+        document.getElementById("predClass").innerText = "";
       }
     }
   </script>

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
 from explanations.shap_explainer import ShapExplainer
 from explanations.lime_explainer import explain_with_lime
 import os
@@ -17,9 +17,12 @@ def explain():
         data = request.json
         combined_text = data['combined_text']
         method = data['method']
+        plot_type = data.get('plot_type', 'force')
 
         if method == "SHAP":
-            result = shap_explainer.explain(combined_text)
+            result = shap_explainer.explain(combined_text, plot_type)
+            if plot_type in ["beeswarm", "summary", "waterfall"]:
+                return Response(result["visualization"], mimetype='text/html')
         elif method == "LIME":
             result = explain_with_lime(combined_text)
         else:
@@ -28,7 +31,6 @@ def explain():
         response = jsonify(result)
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
         return response
-    
     except Exception as e:
         print(f"API Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
