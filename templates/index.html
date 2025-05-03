@@ -237,6 +237,7 @@
       document.getElementById('tab-predict').classList.toggle('active', widget === 'predict');
       document.getElementById('tab-feature').classList.toggle('active', widget === 'feature');
     }
+
     async function loadSampledArticles() {
       const response = await fetch('/sampled_articles');
       const articles = await response.json();
@@ -270,6 +271,17 @@
         (method === "SHAP") ? "block" : "none";
     }
     toggleShapPlotType();
+
+    async function fetchPredictedClass(combinedText) {
+      const response = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ combined_text: combinedText })
+      });
+      const data = await response.json();
+      return data.predicted_class || "";
+    }
+
     async function getExplanation() {
       const headline = document.getElementById("headlineInput").value;
       const shortDescription = document.getElementById("shortDescriptionInput").value;
@@ -294,6 +306,7 @@
       } else {
         data = await response.json();
       }
+
       if (method === "LIME") {
         document.getElementById("visualization").innerHTML = data.visualization;
         const scriptTags = document.getElementById("visualization").getElementsByTagName('script');
@@ -305,8 +318,15 @@
         document.getElementById("visualization").innerHTML =
           `<iframe id="shapFrame" width="100%" height="350" frameborder="0"></iframe>`;
         document.getElementById("shapFrame").srcdoc = data.visualization;
-        document.getElementById("predClass").innerText = data.predicted_class || "";
-      } else if (method === "SHAP" && (plotType === "beeswarm" || plotType === "summary" || plotType === "waterfall")) {
+        const predClass = await fetchPredictedClass(combinedText);
+        document.getElementById("predClass").innerText = predClass;
+      } else if (method === "SHAP" && plotType === "waterfall") {
+        document.getElementById("visualization").innerHTML =
+          `<iframe id="plotlyFrame" width="100%" height="600" frameborder="0"></iframe>`;
+        document.getElementById("plotlyFrame").srcdoc = data;
+        const predClass = await fetchPredictedClass(combinedText);
+        document.getElementById("predClass").innerText = predClass;
+      } else if (method === "SHAP" && (plotType === "beeswarm" || plotType === "summary")) {
         document.getElementById("visualization").innerHTML =
           `<iframe id="plotlyFrame" width="100%" height="600" frameborder="0"></iframe>`;
         document.getElementById("plotlyFrame").srcdoc = data;

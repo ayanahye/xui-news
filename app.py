@@ -52,5 +52,16 @@ def sampled_articles():
         articles.extend(cat_articles[['headline', 'short_description', 'authors', 'category']].to_dict(orient='records'))
     return jsonify(articles)
 
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        data = request.json
+        combined_text = data['combined_text']
+        predicted_class = shap_explainer.predict_class(combined_text)
+        return jsonify({"predicted_class": predicted_class})
+    except Exception as e:
+        print(f"Prediction API Error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
