@@ -507,54 +507,94 @@
     // slay
     const tutorialSteps = [
     {
+      module: "predict",
       selector: "#exampleSelect",
       text: "👋 Welcome to the Tutorial!<br><br>This is the <b>Example News Article</b> selector. Click to pick a real news headline and description to try out the model.",
       arrow: "down"
     },
     {
+      module: "predict",
       selector: "#authorsInput",
       text: "Here you can enter the <b>authors</b> of the news article. This can help the model if certain authors write about specific topics.",
       arrow: "down"
     },
     {
+      module: "predict",
       selector: "#headlineInput",
       text: "Type or paste the <b>headline</b> of a news article here. The headline is important for understanding what the article is about.",
       arrow: "down"
     },
     {
+      module: "predict",
       selector: "#shortDescriptionInput",
       text: "This is the <b>short description</b> of the article. It gives more detail and helps the model make a better prediction.",
       arrow: "down"
     },
     {
+      module: "predict",
       selector: "#minDfInput",
       text: "<b>Min. Word Occurrences</b> (<code>min_df</code>)<br><br>This controls how rare a word must be to be included as a feature (something model considers to make a prediction). For instance, min_df=5 means ignore words that appear in less than 5 article data points. The lower this (integer) value is the more words are included. Try changing it to see how it affects the model!",
       arrow: "up"
     },
     {
+      module: "predict",
       selector: "#numFeaturesInput",
       text: "<b># Top Features</b> (<code>top_n</code>)<br><br>This sets how many of the most important words or phrases are shown in the explanation. Try different numbers to see more or fewer features.",
       arrow: "up"
     },
     {
+      module: "predict",
       selector: "#trainDataSize",
       text: "<b>Dataset Size</b><br><br>This lets you choose how much data the model uses for training. More data can help the model learn, but might take longer to retrain.",
       arrow: "up"
     },
     {
+      module: "predict",
       selector: "#methodSelect",
       text: "<b>Explanation Method</b><br><br>Choose between <b>SHAP</b> and <b>LIME</b> for different styles of model explanation. SHAP is great for seeing how each word affects the prediction and comes with various different visualizations. LIME is more like a local 'what-if' explainer.",
       arrow: "up"
     },
     {
+      module: "predict",
       selector: "#plotTypeSelect",
       text: "<b>SHAP Plot Type</b><br><br>If you chose SHAP, you can pick different ways to visualize the explanation. Try each one to see what you like best!",
       arrow: "up"
     },
     {
+      module: "predict",
       selector: ".dashboard-btn", 
       text: "When you're ready, click <b>Explain</b> to see the model's prediction and explanation for your article!",
       arrow: "up"
+    },
+    {
+      module: "feature",
+      selector: "#removeStopwords",
+      text: "<b>Remove common (stop) words</b><br><br>Turn this on to ignore very common words like 'the', 'and', 'is'. This can help the model focus on more important words.",
+      arrow: "down"
+    },
+    {
+      module: "feature",
+      selector: "#ngramRange",
+      text: "<b>N-gram Range</b><br><br>This controls the size of word groups the model uses. For example (1,1) would be a word like 'a' which (2,2) would be 'a cat' and (1,2) would include both of these.",
+      arrow: "down"
+    },
+    {
+      module: "feature",
+      selector: "#featureSelectionMethod",
+      text: "<b>Feature Selection</b><br><br>Choose how to pick the most important features for the model. Try different methods to see how explanations change.",
+      arrow: "down"
+    },
+    {
+      module: "feature",
+      selector: ".custom-select",
+      text: "<b>Custom Feature Removal</b><br><br>Click here to remove words or phrases you don't want the model to use when making predictions.",
+      arrow: "down"
+    },
+    {
+      module: "feature",
+      selector: ".dashboard-btn[onclick='retrainModel()']",
+      text: "Once you've made changes, click <b>Retrain Model</b> to update the model with your new settings!",
+      arrow: "down"
     }
   ];
 
@@ -574,67 +614,69 @@
   }
 
   function showTutorialStep() {
-    const step = tutorialSteps[tutorialStep];
-    const elem = document.querySelector(step.selector);
-    const tutorialBar = document.getElementById("tutorialBar");
-    const tutorialArrow = document.getElementById("tutorialArrow");
-    const tutorialText = document.getElementById("tutorialText");
-
-    tutorialText.innerHTML = step.text;
-
-    if (!elem) {
-      tutorialBar.style.position = "fixed";
-      tutorialBar.style.left = "50%";
-      tutorialBar.style.top = "";
-      tutorialBar.style.bottom = "40px";
-      tutorialBar.style.transform = "translateX(-50%)";
-      tutorialArrow.style.display = "none";
-    } else {
-      const rect = elem.getBoundingClientRect();
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-
-      let barLeft, barTop;
-      const spacing = 12; 
-
-      if (step.arrow === "down") {
-        barTop = rect.bottom + scrollTop + spacing;
-        barLeft = rect.left + scrollLeft + rect.width / 2;
-        tutorialBar.style.transform = "translateX(-50%)";
-      } else {
-        barTop = rect.top + scrollTop - spacing;
-        barLeft = rect.left + scrollLeft + rect.width / 2;
-        tutorialBar.style.transform = "translateX(-50%) translateY(-100%)";
-      }
-
-      tutorialBar.style.position = "absolute";
-      tutorialBar.style.left = `${barLeft}px`;
-      tutorialBar.style.top = `${barTop}px`;
-      tutorialBar.style.bottom = "";
-
-      tutorialArrow.style.display = "block";
-      tutorialArrow.style.position = "absolute";
-
-      if (step.arrow === "down") {
-        tutorialArrow.innerHTML = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <polygon points="20,0 40,40 0,40" style="fill:#fff;stroke:#4a3fbf;stroke-width:2"/>
-        </svg>`;
-        tutorialArrow.style.top = "-38px"; 
-      } else {
-        tutorialArrow.innerHTML = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <polygon points="0,0 40,0 20,40" style="fill:#fff;stroke:#4a3fbf;stroke-width:2"/>
-        </svg>`;
-        tutorialArrow.style.top = "100%";
-      }
-
-      tutorialArrow.style.left = "50%";
-      tutorialArrow.style.transform = "translateX(-50%)";
-    }
-
-    document.getElementById("tutorialPrevBtn").disabled = (tutorialStep === 0);
-    document.getElementById("tutorialNextBtn").disabled = (tutorialStep === tutorialSteps.length - 1);
+  const step = tutorialSteps[tutorialStep];
+  // switching functionality
+  if (step.module === "predict") {
+    showWidget('predict');
+  } else if (step.module === "feature") {
+    showWidget('feature');
   }
 
+  const elem = document.querySelector(step.selector);
+  const tutorialBar = document.getElementById("tutorialBar");
+  const tutorialArrow = document.getElementById("tutorialArrow");
+  const tutorialText = document.getElementById("tutorialText");
+
+  tutorialText.innerHTML = step.text;
+
+  if (!elem) {
+    tutorialBar.style.position = "fixed";
+    tutorialBar.style.left = "50%";
+    tutorialBar.style.top = "";
+    tutorialBar.style.bottom = "40px";
+    tutorialBar.style.transform = "translateX(-50%)";
+    tutorialArrow.style.display = "none";
+  } else {
+    elem.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    const rect = elem.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+    let barLeft, barTop;
+    const spacing = 12;
+
+    if (step.arrow === "down") {
+      barTop = rect.bottom + scrollTop + spacing;
+      barLeft = rect.left + scrollLeft + rect.width / 2;
+      tutorialBar.style.transform = "translateX(-50%)";
+    } else {
+      barTop = rect.top + scrollTop - spacing;
+      barLeft = rect.left + scrollLeft + rect.width / 2;
+      tutorialBar.style.transform = "translateX(-50%) translateY(-100%)";
+    }
+
+    tutorialBar.style.position = "absolute";
+    tutorialBar.style.left = `${barLeft}px`;
+    tutorialBar.style.top = `${barTop}px`;
+    tutorialBar.style.bottom = "";
+
+    tutorialArrow.style.display = "block";
+    tutorialArrow.style.position = "absolute";
+    if (step.arrow === "down") {
+      tutorialArrow.innerHTML = `<svg width="40" height="40"><polygon points="20,0 40,40 0,40" style="fill:#fff;stroke:#4a3fbf;stroke-width:2"/></svg>`;
+      tutorialArrow.style.top = "-38px";
+    } else {
+      tutorialArrow.innerHTML = `<svg width="40" height="40"><polygon points="0,0 40,0 20,40" style="fill:#fff;stroke:#4a3fbf;stroke-width:2"/></svg>`;
+      tutorialArrow.style.top = "100%";
+    }
+    tutorialArrow.style.left = "50%";
+    tutorialArrow.style.transform = "translateX(-50%)";
+  }
+
+  document.getElementById("tutorialPrevBtn").disabled = (tutorialStep === 0);
+  document.getElementById("tutorialNextBtn").disabled = (tutorialStep === tutorialSteps.length - 1);
+}
 
   function nextTutorialStep() {
     if (tutorialStep < tutorialSteps.length - 1) {
