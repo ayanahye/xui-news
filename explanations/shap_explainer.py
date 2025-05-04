@@ -10,6 +10,14 @@ from sklearn.preprocessing import LabelEncoder
 
 class ShapExplainer:
     def __init__(self):
+        self._model_cache = {}
+        self._last_min_df = None
+        self._last_top_n = None
+        self._setup_model(min_df=5) 
+
+    def _setup_model(self, min_df=5):
+        if self._last_min_df == min_df:
+            return
         df = pd.read_json("News_Category_Dataset_v3.json", lines=True)
         df['combined_text'] = df['headline'] + " " + df['short_description'] + " " + df['authors'].fillna('')
         categories = df['category'].unique()
@@ -19,7 +27,7 @@ class ShapExplainer:
         X = df_sampled['combined_text']
         y = df_sampled['category']
 
-        self.vectorizer = TfidfVectorizer(min_df=5)
+        self.vectorizer = TfidfVectorizer(min_df=min_df)
         X_vec = self.vectorizer.fit_transform(X).toarray()
 
         self.le = LabelEncoder()
@@ -35,16 +43,20 @@ class ShapExplainer:
 
         self.model = RandomForestClassifier()
         self.model.fit(X_train, y_train)
-
+        # assuming we need to implement passing params ourselves
+        # https://shap.readthedocs.io/en/latest/generated/shap.Explainer.html
         self.explainer = shap.Explainer(self.model, X_train, feature_names=self.feature_names)
+        self._last_min_df = min_df
 
-    def predict_class(self, text):
+    def predict_class(self, text, min_df=5):
+        self._setup_model(min_df)
         X_instance = self.vectorizer.transform([text]).toarray()
         prediction = self.model.predict(X_instance)[0]
         predicted_class = self.le.inverse_transform([prediction])[0]
         return predicted_class
 
-    def explain(self, text, plot_type="force"):
+    def explain(self, text, plot_type="force", min_df=5, top_n=15):
+        self._setup_model(min_df)
         X_instance = self.vectorizer.transform([text]).toarray()
         prediction = self.model.predict(X_instance)[0]
         predicted_class = self.le.inverse_transform([prediction])[0]
@@ -63,6 +75,7 @@ class ShapExplainer:
                 raise ValueError("SH values shape: {}".format(shap_values.values.shape))
             return shap_arr, base_val
 
+        # after shap values are computed we select the top_n features based on the absolute value of shap value
         def get_top_features(features, shap_vals, feature_names, top_n=15):
             top_idx = np.argsort(np.abs(shap_vals))[-top_n:]
             filtered_shap = np.zeros_like(shap_vals)
@@ -135,7 +148,7 @@ class ShapExplainer:
         if plot_type == "force":
             shap_arr, base_val = get_shap_and_base(shap_values, 0, prediction)
             filtered_features, filtered_shap = get_top_features(
-                X_instance[0], shap_arr, self.feature_names, top_n=15
+                X_instance[0], shap_arr, self.feature_names, top_n=top_n
             )
             html = shap.plots.force(
                 base_value=base_val,
@@ -146,11 +159,11 @@ class ShapExplainer:
             )
             html = f"<head>{shap.getjs()}</head><body>{html.html()}</body>"
         elif plot_type == "beeswarm":
-            html = beeswarm_plotly(global_shap_values, self.feature_names, class_idx=prediction)
+            html = beeswarm_plotly(global_shap_values, self.feature_names, class_idx=prediction, max_display=top_n)
         elif plot_type == "summary":
-            html = summary_plotly(global_shap_values, self.feature_names, class_idx=prediction)
+            html = summary_plotly(global_shap_values, self.feature_names, class_idx=prediction, max_display=top_n)
         elif plot_type == "waterfall":
-            html = waterfall_plotly(shap_values, self.feature_names, ind=0, class_idx=prediction)
+            html = waterfall_plotly(shap_values, self.feature_names, ind=0, class_idx=prediction, max_display=top_n)
         else:
             html = "<p>Ppot type not supported.</p>"
 

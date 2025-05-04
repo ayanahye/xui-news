@@ -15,16 +15,31 @@ X = df_sampled['combined_text']
 y = df_sampled['category']
 le = LabelEncoder()
 y_encoded = le.fit_transform(y)
-
-pipeline = make_pipeline(TfidfVectorizer(min_df=5), RandomForestClassifier())
-pipeline.fit(X, y_encoded)
-
 class_names = le.classes_
+
 explainer = LimeTextExplainer(class_names=class_names)
 
-def explain_with_lime(text_instance):
-    exp = explainer.explain_instance(text_instance, pipeline.predict_proba, num_features=6)
-    html = exp.as_html()  
+_pipeline_cache = {}
+
+def get_lime_pipeline(min_df=5):
+    if min_df in _pipeline_cache:
+        return _pipeline_cache[min_df]
+    vectorizer = TfidfVectorizer(min_df=min_df)
+    pipeline = make_pipeline(vectorizer, RandomForestClassifier())
+    pipeline.fit(X, y_encoded)
+    _pipeline_cache[min_df] = (pipeline, vectorizer)
+    return pipeline, vectorizer
+
+# override the default min df and num features with user provided
+def explain_with_lime(text_instance, min_df=5, num_features=6):
+    pipeline, vectorizer = get_lime_pipeline(min_df)
+    # https://lime-ml.readthedocs.io/en/latest/lime.html
+    # additional params could add: num_samples (size of neighborhood to learn the linear model)
+    # potentially distance metrics
+    exp = explainer.explain_instance(
+        text_instance, pipeline.predict_proba, num_features=num_features
+    )
+    html = exp.as_html()
     prediction = pipeline.predict([text_instance])[0]
     predicted_class = le.inverse_transform([prediction])[0]
     return {"visualization": html, "predicted_class": predicted_class}

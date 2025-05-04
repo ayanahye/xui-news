@@ -158,6 +158,30 @@
       margin-bottom: 12px;
       letter-spacing: 0.5px;
     }
+
+  .param-row {
+    margin-bottom: 0;
+    margin-top: 0;
+    gap: 18px;
+  }
+  .param-row input[type="number"] {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1.5px solid #a3a0ff;
+    border-radius: 8px;
+    background: #f0f3ff;
+    font-size: 1em;
+    color: #3a3c8c;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    transition: border 0.2s;
+  }
+  .param-row input[type="number"]:focus {
+    border-color: #3a5cff;
+    background: #fff;
+  }
+
+
     @media (max-width: 700px) {
       .dashboard-container { padding: 0 4vw 18px 4vw; }
       .form-row { flex-direction: column; gap: 0; }
@@ -197,6 +221,16 @@
         <div class="form-group">
           <label for="shortDescriptionInput">Short Description</label>
           <textarea id="shortDescriptionInput" rows="2" placeholder="enter short description..."></textarea>
+        </div>
+      </div>
+      <div class="form-row param-row">
+        <div class="form-group" style="flex:1">
+          <label for="minDfInput">Min. Word Occurrences (<code>min_df</code>)</label>
+          <input type="number" id="minDfInput" min="1" max="100" value="5" />
+        </div>
+        <div class="form-group" style="flex:1">
+          <label for="numFeaturesInput"># Top Features (<code>top_n</code>)</label>
+          <input type="number" id="numFeaturesInput" min="1" max="50" value="15" />
         </div>
       </div>
       <div class="actions-row">
@@ -289,11 +323,17 @@
       const combinedText = headline + " " + shortDescription + " " + authors;
       const method = document.getElementById("methodSelect").value;
       const plotType = document.getElementById("plotTypeSelect").value;
+      // addiitonal params added 
+      const minDf = parseInt(document.getElementById("minDfInput").value, 10);
+      const topN = parseInt(document.getElementById("numFeaturesInput").value, 10);
+
       document.getElementById("visualization").innerHTML = "<span style='color:#4a3fbf'>Loading...</span>";
       const payload = {
         combined_text: combinedText,
         method: method,
-        plot_type: plotType
+        plot_type: plotType,
+        min_df: minDf,
+        top_n: topN
       };
       const response = await fetch('/explain', {
         method: 'POST',
