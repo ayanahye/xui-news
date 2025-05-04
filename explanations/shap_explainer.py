@@ -11,17 +11,19 @@ from sklearn.preprocessing import LabelEncoder
 class ShapExplainer:
     def __init__(self):
         self._last_params = None
-        self._setup_model(min_df=5, remove_stopwords=True, ngram_range=(1,1))
+        self._setup_model(min_df=5, remove_stopwords=True, ngram_range=(1,1), train_data_size=500)
 
-    def _setup_model(self, min_df=5, remove_stopwords=True, ngram_range=(1,1)):
-        params = (min_df, remove_stopwords, ngram_range)
+    def _setup_model(self, min_df=5, remove_stopwords=True, ngram_range=(1,1), train_data_size=500):
+        params = (min_df, remove_stopwords, ngram_range, train_data_size)
         if self._last_params == params:
             return
         df = pd.read_json("News_Category_Dataset_v3.json", lines=True)
         df['combined_text'] = df['headline'] + " " + df['short_description'] + " " + df['authors'].fillna('')
         categories = df['category'].unique()
         selected_categories = pd.Series(categories).sample(n=3, random_state=42).tolist()
-        df_sampled = df[df['category'].isin(selected_categories)].sample(n=500, random_state=42)
+        df_sampled = df[df['category'].isin(selected_categories)]
+        if train_data_size is not None:
+            df_sampled = df_sampled.sample(n=train_data_size, random_state=42)
 
         X = df_sampled['combined_text']
         y = df_sampled['category']
@@ -50,15 +52,15 @@ class ShapExplainer:
         self.explainer = shap.Explainer(self.model, X_train, feature_names=self.feature_names)
         self._last_params = params
 
-    def predict_class(self, text, min_df=5, remove_stopwords=True, ngram_range=(1,1)):
-        self._setup_model(min_df, remove_stopwords, ngram_range)
+    def predict_class(self, text, min_df=5, remove_stopwords=True, ngram_range=(1,1), train_data_size=500):
+        self._setup_model(min_df, remove_stopwords, ngram_range, train_data_size)
         X_instance = self.vectorizer.transform([text]).toarray()
         prediction = self.model.predict(X_instance)[0]
         predicted_class = self.le.inverse_transform([prediction])[0]
         return predicted_class
 
-    def explain(self, text, plot_type="force", min_df=5, top_n=15, remove_stopwords=True, ngram_range=(1,1)):
-        self._setup_model(min_df, remove_stopwords, ngram_range)
+    def explain(self, text, plot_type="force", min_df=5, top_n=15, remove_stopwords=True, ngram_range=(1,1), train_data_size=500):
+        self._setup_model(min_df, remove_stopwords, ngram_range, train_data_size)
         X_instance = self.vectorizer.transform([text]).toarray()
         prediction = self.model.predict(X_instance)[0]
         predicted_class = self.le.inverse_transform([prediction])[0]

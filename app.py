@@ -27,6 +27,13 @@ def explain():
         if isinstance(ngram_range, list):
             ngram_range = tuple(ngram_range)
 
+
+        train_data_size = data.get('train_data_size', 500)
+        if train_data_size == "all":
+            train_data_size = 5000
+        else:
+            train_data_size = int(train_data_size)
+
         if method == "SHAP":
             result = shap_explainer.explain(
                 combined_text,
@@ -34,7 +41,8 @@ def explain():
                 min_df=min_df,
                 top_n=top_n,
                 remove_stopwords=remove_stopwords,
-                ngram_range=ngram_range
+                ngram_range=ngram_range,
+                train_data_size=train_data_size
             )
             if plot_type in ["beeswarm", "summary", "waterfall"]:
                 return Response(result["visualization"], mimetype='text/html')
@@ -44,7 +52,8 @@ def explain():
                 min_df=min_df,
                 num_features=top_n,
                 remove_stopwords=remove_stopwords,
-                ngram_range=ngram_range
+                ngram_range=ngram_range,
+                train_data_size=train_data_size
             )
         else:
             result = {"error": "Invalid method"}
@@ -66,11 +75,18 @@ def predict():
         ngram_range = data.get('ngram_range', [1, 1])
         if isinstance(ngram_range, list):
             ngram_range = tuple(ngram_range)
+        train_data_size = data.get('train_data_size', 500)
+        if train_data_size == "all":
+            train_data_size = 5000
+        else:
+            train_data_size = int(train_data_size)
+
         predicted_class = shap_explainer.predict_class(
             combined_text,
             min_df=min_df,
             remove_stopwords=remove_stopwords,
-            ngram_range=ngram_range
+            ngram_range=ngram_range,
+            train_data_size=train_data_size
         )
         return jsonify({"predicted_class": predicted_class})
     except Exception as e:

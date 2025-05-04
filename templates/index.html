@@ -285,6 +285,16 @@
           <label for="numFeaturesInput"># Top Features (<code>top_n</code>)</label>
           <input type="number" id="numFeaturesInput" min="1" max="50" value="15" />
         </div>
+        <div class="form-group" style="flex:1">
+          <label for="trainDataSize">Dataset Size</label>
+          <select id="trainDataSize">
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+            <option value="1500">1500</option>
+            <option value="2000">2000</option>
+            <option value="all">All</option>
+          </select>
+        </div>        
       </div>
       <div class="actions-row">
         <div class="form-group" style="flex:0.5">
@@ -441,6 +451,9 @@
 
       const featureEngParams = getFeatureEngParams();
 
+      // allowing user to choose data too
+      const trainDataSize = document.getElementById("trainDataSize").value;
+
       document.getElementById("visualization").innerHTML = "<span style='color:#4a3fbf'>Loading...</span>";
       const payload = {
         combined_text: combinedText,
@@ -448,6 +461,7 @@
         plot_type: plotType,
         min_df: minDf,
         top_n: topN,
+        train_data_size: trainDataSize,
         ...featureEngParams
       };
 
