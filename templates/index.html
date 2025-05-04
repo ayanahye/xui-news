@@ -551,7 +551,7 @@
     {
       module: "predict",
       selector: "#methodSelect",
-      text: "<b>Explanation Method</b><br><br>Choose between <b>SHAP</b> and <b>LIME</b> for different styles of model explanation. SHAP is great for seeing how each word affects the prediction and comes with various different visualizations. LIME is more like a local 'what-if' explainer.",
+      text: "<b>Explanation Method</b><br><br>Choose between <b>SHAP</b> and <b>LIME</b> for different styles of model explanation. SHAP provides local and global explanations while LIME only provides local. Global explanations help explain the models behavior across all the data, while local explanations provide details about how each feature contributes for a specific prediction. LIME will use a simple model to explain the original prediction while SHAP uses Shapley values to fairly assign a contribution value to each feature.",
       arrow: "up"
     },
     {
@@ -575,7 +575,7 @@
     {
       module: "feature",
       selector: "#ngramRange",
-      text: "<b>N-gram Range</b><br><br>This controls the size of word groups the model uses. For example (1,1) would be a word like 'a' which (2,2) would be 'a cat' and (1,2) would include both of these.",
+      text: "<b>N-gram Range</b><br><br>This controls the size of word groups the model uses. For example (1,1) would be a word like 'a' while (2,2) would be 'a cat' and (1,2) would include both of these.",
       arrow: "down"
     },
     {
