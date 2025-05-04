@@ -317,7 +317,7 @@
           <div class="form-row">
             <div class="form-group" style="flex:1">
               <label>
-                <input type="checkbox" id="removeStopwords" checked>
+                <input type="checkbox" id="removeStopwords">
                 Remove common (stop) words
               </label>
             </div>
@@ -398,13 +398,34 @@
     toggleShapPlotType();
 
     async function fetchPredictedClass(combinedText) {
+      const featureEngParams = getFeatureEngParams();
       const response = await fetch('/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ combined_text: combinedText })
+        body: JSON.stringify({
+          combined_text: combinedText,
+          ...featureEngParams
+        })
       });
       const data = await response.json();
       return data.predicted_class || "";
+    }
+
+    function getFeatureEngParams() {
+      const removeStopwords = document.getElementById("removeStopwords").checked;
+      const ngramRange = document.getElementById("ngramRange").value.split(',').map(Number);
+      return {
+        remove_stopwords: removeStopwords,
+        ngram_range: ngramRange
+      };
+    }
+
+    async function retrainModel() {
+      showWidget('predict'); 
+      document.getElementById("featureEngResult").innerText = "Model retrained with new settings!";
+      setTimeout(() => {
+        getExplanation();
+      }, 200);
     }
 
     async function getExplanation() {
@@ -418,14 +439,18 @@
       const minDf = parseInt(document.getElementById("minDfInput").value, 10);
       const topN = parseInt(document.getElementById("numFeaturesInput").value, 10);
 
+      const featureEngParams = getFeatureEngParams();
+
       document.getElementById("visualization").innerHTML = "<span style='color:#4a3fbf'>Loading...</span>";
       const payload = {
         combined_text: combinedText,
         method: method,
         plot_type: plotType,
         min_df: minDf,
-        top_n: topN
+        top_n: topN,
+        ...featureEngParams
       };
+
       const response = await fetch('/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

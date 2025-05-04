@@ -21,21 +21,29 @@ explainer = LimeTextExplainer(class_names=class_names)
 
 _pipeline_cache = {}
 
-def get_lime_pipeline(min_df=5):
-    if min_df in _pipeline_cache:
-        return _pipeline_cache[min_df]
-    vectorizer = TfidfVectorizer(min_df=min_df)
+def get_lime_pipeline(min_df=5, remove_stopwords=True, ngram_range=(1,1)):
+    cache_key = (min_df, remove_stopwords, ngram_range)
+    if cache_key in _pipeline_cache:
+        return _pipeline_cache[cache_key]
+    stop_words = 'english' if remove_stopwords else None
+    vectorizer = TfidfVectorizer(
+        min_df=min_df,
+        stop_words=stop_words,
+        ngram_range=ngram_range
+    )
     pipeline = make_pipeline(vectorizer, RandomForestClassifier())
     pipeline.fit(X, y_encoded)
-    _pipeline_cache[min_df] = (pipeline, vectorizer)
+    _pipeline_cache[cache_key] = (pipeline, vectorizer)
     return pipeline, vectorizer
 
-# override the default min df and num features with user provided
-def explain_with_lime(text_instance, min_df=5, num_features=6):
-    pipeline, vectorizer = get_lime_pipeline(min_df)
-    # https://lime-ml.readthedocs.io/en/latest/lime.html
-    # additional params could add: num_samples (size of neighborhood to learn the linear model)
-    # potentially distance metrics
+def explain_with_lime(
+    text_instance,
+    min_df=5,
+    num_features=6,
+    remove_stopwords=True,
+    ngram_range=(1,1)
+):
+    pipeline, vectorizer = get_lime_pipeline(min_df, remove_stopwords, ngram_range)
     exp = explainer.explain_instance(
         text_instance, pipeline.predict_proba, num_features=num_features
     )

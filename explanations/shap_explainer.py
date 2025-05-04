@@ -10,13 +10,12 @@ from sklearn.preprocessing import LabelEncoder
 
 class ShapExplainer:
     def __init__(self):
-        self._model_cache = {}
-        self._last_min_df = None
-        self._last_top_n = None
-        self._setup_model(min_df=5) 
+        self._last_params = None
+        self._setup_model(min_df=5, remove_stopwords=True, ngram_range=(1,1))
 
-    def _setup_model(self, min_df=5):
-        if self._last_min_df == min_df:
+    def _setup_model(self, min_df=5, remove_stopwords=True, ngram_range=(1,1)):
+        params = (min_df, remove_stopwords, ngram_range)
+        if self._last_params == params:
             return
         df = pd.read_json("News_Category_Dataset_v3.json", lines=True)
         df['combined_text'] = df['headline'] + " " + df['short_description'] + " " + df['authors'].fillna('')
@@ -27,7 +26,12 @@ class ShapExplainer:
         X = df_sampled['combined_text']
         y = df_sampled['category']
 
-        self.vectorizer = TfidfVectorizer(min_df=min_df)
+        stop_words = 'english' if remove_stopwords else None
+        self.vectorizer = TfidfVectorizer(
+            min_df=min_df,
+            stop_words=stop_words,
+            ngram_range=ngram_range
+        )
         X_vec = self.vectorizer.fit_transform(X).toarray()
 
         self.le = LabelEncoder()
@@ -43,20 +47,18 @@ class ShapExplainer:
 
         self.model = RandomForestClassifier()
         self.model.fit(X_train, y_train)
-        # assuming we need to implement passing params ourselves
-        # https://shap.readthedocs.io/en/latest/generated/shap.Explainer.html
         self.explainer = shap.Explainer(self.model, X_train, feature_names=self.feature_names)
-        self._last_min_df = min_df
+        self._last_params = params
 
-    def predict_class(self, text, min_df=5):
-        self._setup_model(min_df)
+    def predict_class(self, text, min_df=5, remove_stopwords=True, ngram_range=(1,1)):
+        self._setup_model(min_df, remove_stopwords, ngram_range)
         X_instance = self.vectorizer.transform([text]).toarray()
         prediction = self.model.predict(X_instance)[0]
         predicted_class = self.le.inverse_transform([prediction])[0]
         return predicted_class
 
-    def explain(self, text, plot_type="force", min_df=5, top_n=15):
-        self._setup_model(min_df)
+    def explain(self, text, plot_type="force", min_df=5, top_n=15, remove_stopwords=True, ngram_range=(1,1)):
+        self._setup_model(min_df, remove_stopwords, ngram_range)
         X_instance = self.vectorizer.transform([text]).toarray()
         prediction = self.model.predict(X_instance)[0]
         predicted_class = self.le.inverse_transform([prediction])[0]
@@ -75,7 +77,6 @@ class ShapExplainer:
                 raise ValueError("SH values shape: {}".format(shap_values.values.shape))
             return shap_arr, base_val
 
-        # after shap values are computed we select the top_n features based on the absolute value of shap value
         def get_top_features(features, shap_vals, feature_names, top_n=15):
             top_idx = np.argsort(np.abs(shap_vals))[-top_n:]
             filtered_shap = np.zeros_like(shap_vals)
@@ -91,7 +92,6 @@ class ShapExplainer:
             else:
                 mean_abs_shap = np.abs(shap_values.values).mean(axis=0)
                 vals = shap_values.values
-                class_idx = 0  # not used
             top_idx = np.argsort(mean_abs_shap)[-max_display:]
             df = pd.DataFrame({
                 "feature": np.repeat([feature_names[i] for i in top_idx], vals.shape[0]),
