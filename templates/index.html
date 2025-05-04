@@ -13,20 +13,17 @@
       min-height: 100vh;
     }
     .site-header {
-      position: fixed;     
-      top: 0;              
-      left: 0;            
-      width: 100%;      
-      z-index: 1000;        
-      background: #fff;    
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 1000;
+      background: #fff;
       box-shadow: 0 2px 16px 0 rgba(90, 80, 200, 0.10);
       padding: 32px 0 24px 0;
-      text-align: center;
-      font-size: 2.5em;
-      font-weight: 700;
-      color: #4a3fbf;
-      letter-spacing: -1px;
-      text-shadow: 0 2px 12px #7b5cff22;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .dashboard-container {
       max-width: 950px;
@@ -245,7 +242,103 @@
   .pagination-controls { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 8px; }
   .pagination-controls button { background: #e3e7ff; border: none; border-radius: 4px; padding: 2px 10px; cursor: pointer; }
 
+  .hidden {
+    display: none !important;
+  }
 
+
+  .tutorial-btn {
+    position: absolute;
+    right: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #4a3fbf;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 18px;
+    font-size: 1em;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 1px 6px #7b5cff33;
+    transition: background 0.2s;
+    height: 38px;
+    line-height: 1;
+  }
+
+  .tutorial-btn:hover {
+   background: #352d8c;
+  }
+
+  .tutorial-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(40,40,60,0.65);
+    z-index: 9998;
+    transition: opacity 0.2s;
+  }
+
+  .tutorial-bar {
+    background: #fff;
+    color: #222;
+    border-radius: 10px;
+    box-shadow: 0 6px 32px rgba(80,80,120,0.15);
+    z-index: 9999;
+    min-width: 280px;
+    max-width: 350px;
+    padding: 18px 24px 14px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 1.05em;
+    position: absolute; 
+  }
+
+
+  .tutorial-bar .tutorial-nav {
+    margin-top: 18px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .tutorial-bar button {
+    background: #4a3fbf;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 6px;
+    font-size: 1em;
+    cursor: pointer;
+  }
+
+  .tutorial-bar button:disabled {
+    background: #bdbaff;
+    color: #fff;
+    cursor: not-allowed;
+  }
+
+  .tutorial-arrow {
+    width: 40px;
+    height: 40px;
+    pointer-events: none;
+    position: absolute;
+    z-index: 10000;
+  }
+
+  .tutorial-arrow svg {
+    width: 40px; height: 40px;
+    display: block;
+  }
+
+  .header-title {
+    flex: 1;
+    text-align: center;
+    font-size: 2.5em;
+    font-weight: 700;
+    color: #4a3fbf;
+    letter-spacing: -1px;
+    text-shadow: 0 2px 12px #7b5cff22;
+  }
 
     @media (max-width: 700px) {
       .dashboard-container { padding: 0 4vw 18px 4vw; }
@@ -259,12 +352,28 @@
   </style>
 </head>
 <body>
-  <div class="site-header">Explainable News Classifier</div>
+  <div class="site-header">
+    <div class="header-title">Explainable News Classifier</div>
+    <button id="tutorialBtn" class="tutorial-btn" onclick="startTutorial()">Tutorial</button>
+  </div>
+  
+  <div id="tutorialOverlay" class="tutorial-overlay hidden"></div>
+  <div id="tutorialBar" class="tutorial-bar hidden">
+    <div id="tutorialArrow" class="tutorial-arrow"></div>
+    <div id="tutorialText"></div>
+    <div class="tutorial-nav">
+      <button onclick="prevTutorialStep()" id="tutorialPrevBtn">&larr; Previous</button>
+      <button onclick="nextTutorialStep()" id="tutorialNextBtn">Next &rarr;</button>
+      <button onclick="endTutorial()" id="tutorialEndBtn">End Tutorial</button>
+    </div>
+  </div>
+
   <div class="dashboard-container">
     <div class="widget-tabs">
       <button class="widget-tab active" id="tab-predict" onclick="showWidget('predict')">News Category Prediction</button>
       <button class="widget-tab" id="tab-feature" onclick="showWidget('feature')">Feature Engineering</button>
     </div>
+
     <div class="widget-content" id="widget-predict">
       <div class="form-row">
         <div class="form-group" style="flex:2">
@@ -306,7 +415,7 @@
             <option value="2000">2000</option>
             <option value="all">All</option>
           </select>
-        </div>        
+        </div>
       </div>
       <div class="actions-row">
         <div class="form-group" style="flex:0.5">
@@ -332,62 +441,60 @@
       </div>
       <div id="visualization"></div>
     </div>
-    <div class="widget-content" id="widget-feature" style="display:none;">
-      <!--i plan to make this easier to understand w labels and other elements but here is what i plan to implement -->
-        <div class="feature-eng-section">
-          <h2>Feature Engineering Options</h2>
-          <div class="form-row">
-            <div class="form-group" style="flex:1">
-              <label>
-                <input type="checkbox" id="removeStopwords">
-                Remove common (stop) words
-              </label>
-            </div>
-            <div class="form-group" style="flex:1">
-              <label for="ngramRange">N-gram Range</label>
-              <select id="ngramRange">
-                <option value="1,1">Unigrams (1,1)</option>
-                <option value="1,2">Unigrams+Bigrams (1,2)</option>
-                <option value="2,2">Bigrams (2,2)</option>
-                <option value="1,3">1 to 3-grams (1,3)</option>
-              </select>
-            </div>
-            <!-- current list -- taken from: https://ieeexplore.ieee.org/abstract/document/7566545 -->
-            <div class="form-group" style="flex:1">
-              <label for="featureSelectionMethod">Feature Selection</label>
-              <select id="featureSelectionMethod">
-                <option value="none">Document Frequency</option>
-                <option value="chi2">Information Gain</option>
-                <option value="mutual_info">Gini Index</option>
-                <option value="variance">Chi-Square</option>
-                <option value="variance">Best Term</option>
-                <option value="variance">Ambiguity Measure</option>
-                <option value="variance">Distinguishing Feature Selector</option>
-              </select>
-            </div>
-          </div>
 
-          <div class="custom-feature-section">
-            <<div class="form-group">
-              <label>Custom Feature Removal</label>
-              <div class="custom-select" id="featureDropdown">
-                <button type="button" class="select-button" onclick="toggleFeatureDropdown()">
-                  Remove Features <span class="arrow">&#9660;</span>
-                </button>
-                <div class="select-dropdown hidden" id="featureListDropdown">
-                  <ul id="featureListPage"></ul>
-                  <div class="pagination-controls">
-                    <button onclick="prevFeaturePage()" id="prevFeatureBtn">&lt;</button>
-                    <span id="featurePageInfo"></span>
-                    <button onclick="nextFeaturePage()" id="nextFeatureBtn">&gt;</button>
-                  </div>
-                </div>
-                <p>Note: Features will refresh after changing N-gram Range. This may take a few seconds.</p>
-              </div>
-            </div>            
-            <button class="dashboard-btn" onclick="retrainModel()">Retrain Model</button>
+    <div class="widget-content" id="widget-feature" style="display:none;">
+      <div class="feature-eng-section">
+        <h2>Feature Engineering Options</h2>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label>
+              <input type="checkbox" id="removeStopwords">
+              Remove common (stop) words
+            </label>
           </div>
-          <div id="featureEngResult" class="feature-eng-result"></div>
+          <div class="form-group" style="flex:1">
+            <label for="ngramRange">N-gram Range</label>
+            <select id="ngramRange">
+              <option value="1,1">Unigrams (1,1)</option>
+              <option value="1,2">Unigrams+Bigrams (1,2)</option>
+              <option value="2,2">Bigrams (2,2)</option>
+              <option value="1,3">1 to 3-grams (1,3)</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label for="featureSelectionMethod">Feature Selection</label>
+            <select id="featureSelectionMethod">
+              <option value="none">Document Frequency</option>
+              <option value="chi2">Information Gain</option>
+              <option value="mutual_info">Gini Index</option>
+              <option value="variance">Chi-Square</option>
+              <option value="variance">Best Term</option>
+              <option value="variance">Ambiguity Measure</option>
+              <option value="variance">Distinguishing Feature Selector</option>
+            </select>
+          </div>
+        </div>
+        <div class="custom-feature-section">
+          <div class="form-group">
+            <label>Custom Feature Removal</label>
+            <div class="custom-select" id="featureDropdown">
+              <button type="button" class="select-button" onclick="toggleFeatureDropdown()">
+                Remove Features <span class="arrow">&#9660;</span>
+              </button>
+              <div class="select-dropdown hidden" id="featureListDropdown">
+                <ul id="featureListPage"></ul>
+                <div class="pagination-controls">
+                  <button onclick="prevFeaturePage()" id="prevFeatureBtn">&lt;</button>
+                  <span id="featurePageInfo"></span>
+                  <button onclick="nextFeaturePage()" id="nextFeatureBtn">&gt;</button>
+                </div>
+              </div>
+              <p>Note: Features will refresh after changing N-gram Range. This may take a few seconds.</p>
+            </div>
+          </div>
+          <button class="dashboard-btn" onclick="retrainModel()">Retrain Model</button>
+        </div>
+        <div id="featureEngResult" class="feature-eng-result"></div>
       </div>
     </div>
   </div>
@@ -397,6 +504,180 @@
     let removedFeatures = new Set(); 
     let featurePage = 0;
     const featuresPerPage = 25;
+    // slay
+    const tutorialSteps = [
+    {
+      selector: "#exampleSelect",
+      text: "👋 Welcome to the Tutorial!<br><br>This is the <b>Example News Article</b> selector. Click to pick a real news headline and description to try out the model.",
+      arrow: "down"
+    },
+    {
+      selector: "#authorsInput",
+      text: "Here you can enter the <b>authors</b> of the news article. This can help the model if certain authors write about specific topics.",
+      arrow: "down"
+    },
+    {
+      selector: "#headlineInput",
+      text: "Type or paste the <b>headline</b> of a news article here. The headline is important for understanding what the article is about.",
+      arrow: "down"
+    },
+    {
+      selector: "#shortDescriptionInput",
+      text: "This is the <b>short description</b> of the article. It gives more detail and helps the model make a better prediction.",
+      arrow: "down"
+    },
+    {
+      selector: "#minDfInput",
+      text: "<b>Min. Word Occurrences</b> (<code>min_df</code>)<br><br>This controls how rare a word must be to be included as a feature (something model considers to make a prediction). Higher values mean only common words are used. Try changing it to see how it affects the model!",
+      arrow: "up"
+    },
+    {
+      selector: "#numFeaturesInput",
+      text: "<b># Top Features</b> (<code>top_n</code>)<br><br>This sets how many of the most important words or phrases are shown in the explanation. Try different numbers to see more or fewer features.",
+      arrow: "up"
+    },
+    {
+      selector: "#trainDataSize",
+      text: "<b>Dataset Size</b><br><br>This lets you choose how much data the model uses for training. More data can help the model learn, but might take longer to retrain.",
+      arrow: "up"
+    },
+    {
+      selector: "#methodSelect",
+      text: "<b>Explanation Method</b><br><br>Choose between <b>SHAP</b> and <b>LIME</b> for different styles of model explanation. SHAP is great for seeing how each word affects the prediction and comes with various different visualizations. LIME is more like a local 'what-if' explainer.",
+      arrow: "up"
+    },
+    {
+      selector: "#plotTypeSelect",
+      text: "<b>SHAP Plot Type</b><br><br>If you chose SHAP, you can pick different ways to visualize the explanation. Try each one to see what you like best!",
+      arrow: "up"
+    },
+    {
+      selector: ".dashboard-btn", 
+      text: "When you're ready, click <b>Explain</b> to see the model's prediction and explanation for your article!",
+      arrow: "up"
+    }
+  ];
+
+  let tutorialStep = 0;
+
+  function startTutorial() {
+  document.getElementById("tutorialOverlay").classList.remove("hidden");
+  document.getElementById("tutorialBar").classList.remove("hidden");
+  tutorialStep = 0;
+  showTutorialStep();
+  }
+
+  function endTutorial() {
+  document.getElementById("tutorialOverlay").classList.add("hidden");
+  document.getElementById("tutorialBar").classList.add("hidden");
+  removeArrow();
+  }
+
+  function showTutorialStep() {
+    const step = tutorialSteps[tutorialStep];
+    const elem = document.querySelector(step.selector);
+    const tutorialBar = document.getElementById("tutorialBar");
+    const tutorialArrow = document.getElementById("tutorialArrow");
+    const tutorialText = document.getElementById("tutorialText");
+
+    tutorialText.innerHTML = step.text;
+
+    if (!elem) {
+      tutorialBar.style.position = "fixed";
+      tutorialBar.style.left = "50%";
+      tutorialBar.style.top = "";
+      tutorialBar.style.bottom = "40px";
+      tutorialBar.style.transform = "translateX(-50%)";
+      tutorialArrow.style.display = "none";
+    } else {
+      const rect = elem.getBoundingClientRect();
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+      let barLeft, barTop;
+      const spacing = 12; 
+
+      if (step.arrow === "down") {
+        barTop = rect.bottom + scrollTop + spacing;
+        barLeft = rect.left + scrollLeft + rect.width / 2;
+        tutorialBar.style.transform = "translateX(-50%)";
+      } else {
+        barTop = rect.top + scrollTop - spacing;
+        barLeft = rect.left + scrollLeft + rect.width / 2;
+        tutorialBar.style.transform = "translateX(-50%) translateY(-100%)";
+      }
+
+      tutorialBar.style.position = "absolute";
+      tutorialBar.style.left = `${barLeft}px`;
+      tutorialBar.style.top = `${barTop}px`;
+      tutorialBar.style.bottom = "";
+
+      tutorialArrow.style.display = "block";
+      tutorialArrow.style.position = "absolute";
+
+      if (step.arrow === "down") {
+        tutorialArrow.innerHTML = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="20,0 40,40 0,40" style="fill:#fff;stroke:#4a3fbf;stroke-width:2"/>
+        </svg>`;
+        tutorialArrow.style.top = "-38px"; 
+      } else {
+        tutorialArrow.innerHTML = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="0,0 40,0 20,40" style="fill:#fff;stroke:#4a3fbf;stroke-width:2"/>
+        </svg>`;
+        tutorialArrow.style.top = "100%";
+      }
+
+      tutorialArrow.style.left = "50%";
+      tutorialArrow.style.transform = "translateX(-50%)";
+    }
+
+    document.getElementById("tutorialPrevBtn").disabled = (tutorialStep === 0);
+    document.getElementById("tutorialNextBtn").disabled = (tutorialStep === tutorialSteps.length - 1);
+  }
+
+
+  function nextTutorialStep() {
+    if (tutorialStep < tutorialSteps.length - 1) {
+      tutorialStep++;
+      showTutorialStep();
+    }
+  }
+
+  function prevTutorialStep() {
+    if (tutorialStep > 0) {
+      tutorialStep--;
+      showTutorialStep();
+    }
+  }
+
+  function removeArrow() {
+    const arrow = document.getElementById("tutorialArrow");
+    arrow.innerHTML = "";
+    arrow.style.display = "none";
+  }
+
+  function pointArrowTo(selector, direction) {
+    const arrow = document.getElementById("tutorialArrow");
+    const elem = document.querySelector(selector);
+    if (!elem) {
+      arrow.style.display = "none";
+      return;
+    }
+    const rect = elem.getBoundingClientRect();
+    arrow.style.display = "block";
+    let left, top;
+    if (direction === "down") {
+      left = rect.left + rect.width / 2 - 20;
+      top = rect.bottom + window.scrollY + 6;
+      arrow.innerHTML = `<svg><polygon points="20,0 40,40 0,40" style="fill:#fff;stroke:#4a3fbf;stroke-width:2"/></svg>`;
+    } else {
+      left = rect.left + rect.width / 2 - 20;
+      top = rect.top + window.scrollY - 46;
+      arrow.innerHTML = `<svg><polygon points="0,0 40,0 20,40" style="fill:#fff;stroke:#4a3fbf;stroke-width:2"/></svg>`;
+    }
+    arrow.style.left = left + "px";
+    arrow.style.top = top + "px";
+  }
 
     function showWidget(widget) {
       document.getElementById('widget-predict').style.display = widget === 'predict' ? '' : 'none';
