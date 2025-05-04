@@ -34,6 +34,8 @@ def explain():
         else:
             train_data_size = int(train_data_size)
 
+        features_to_remove = data.get('features_to_remove', [])
+
         if method == "SHAP":
             result = shap_explainer.explain(
                 combined_text,
@@ -42,7 +44,8 @@ def explain():
                 top_n=top_n,
                 remove_stopwords=remove_stopwords,
                 ngram_range=ngram_range,
-                train_data_size=train_data_size
+                train_data_size=train_data_size,
+                features_to_remove=features_to_remove
             )
             if plot_type in ["beeswarm", "summary", "waterfall"]:
                 return Response(result["visualization"], mimetype='text/html')
@@ -53,7 +56,8 @@ def explain():
                 num_features=top_n,
                 remove_stopwords=remove_stopwords,
                 ngram_range=ngram_range,
-                train_data_size=train_data_size
+                train_data_size=train_data_size,
+                features_to_remove=features_to_remove
             )
         else:
             result = {"error": "Invalid method"}
@@ -81,17 +85,28 @@ def predict():
         else:
             train_data_size = int(train_data_size)
 
+        features_to_remove = data.get('features_to_remove', [])
+
         predicted_class = shap_explainer.predict_class(
             combined_text,
             min_df=min_df,
             remove_stopwords=remove_stopwords,
             ngram_range=ngram_range,
-            train_data_size=train_data_size
+            train_data_size=train_data_size,
+            features_to_remove=features_to_remove
         )
         return jsonify({"predicted_class": predicted_class})
     except Exception as e:
         print(f"Prediction API Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/features')
+def features():
+    try:
+        features = list(shap_explainer.get_feature_names())
+        return jsonify(features)
+    except Exception as e:
+        return jsonify([])
 
 @app.route('/sampled_articles')
 def sampled_articles():

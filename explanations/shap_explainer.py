@@ -11,12 +11,33 @@ from sklearn.preprocessing import LabelEncoder
 class ShapExplainer:
     def __init__(self):
         self._last_params = None
-        self._setup_model(min_df=5, remove_stopwords=True, ngram_range=(1,1), train_data_size=500)
+        self._setup_model(
+            min_df=5,
+            remove_stopwords=True,
+            ngram_range=(1,1),
+            train_data_size=500,
+            features_to_remove=[]
+        )
 
-    def _setup_model(self, min_df=5, remove_stopwords=True, ngram_range=(1,1), train_data_size=500):
-        params = (min_df, remove_stopwords, ngram_range, train_data_size)
+    def _setup_model(
+        self,
+        min_df=5,
+        remove_stopwords=True,
+        ngram_range=(1,1),
+        train_data_size=500,
+        features_to_remove=None
+    ):
+        features_to_remove = features_to_remove or []
+        params = (
+            min_df,
+            remove_stopwords,
+            ngram_range,
+            train_data_size,
+            tuple(sorted(features_to_remove))
+        )
         if self._last_params == params:
             return
+
         df = pd.read_json("News_Category_Dataset_v3.json", lines=True)
         df['combined_text'] = df['headline'] + " " + df['short_description'] + " " + df['authors'].fillna('')
         categories = df['category'].unique()
@@ -29,12 +50,21 @@ class ShapExplainer:
         y = df_sampled['category']
 
         stop_words = 'english' if remove_stopwords else None
-        self.vectorizer = TfidfVectorizer(
+        vectorizer = TfidfVectorizer(
             min_df=min_df,
             stop_words=stop_words,
             ngram_range=ngram_range
         )
-        X_vec = self.vectorizer.fit_transform(X).toarray()
+        X_vec = vectorizer.fit_transform(X).toarray()
+        feature_names = vectorizer.get_feature_names_out()
+
+        if features_to_remove:
+            keep_indices = [i for i, f in enumerate(feature_names) if f not in features_to_remove]
+            X_vec = X_vec[:, keep_indices]
+            feature_names = feature_names[keep_indices]
+
+        self.vectorizer = vectorizer
+        self.feature_names = feature_names
 
         self.le = LabelEncoder()
         y_encoded = self.le.fit_transform(y)
@@ -45,23 +75,50 @@ class ShapExplainer:
         self.X_train = X_train
         self.X_test = X_test
         self.X = X
-        self.feature_names = self.vectorizer.get_feature_names_out()
 
         self.model = RandomForestClassifier()
         self.model.fit(X_train, y_train)
         self.explainer = shap.Explainer(self.model, X_train, feature_names=self.feature_names)
         self._last_params = params
 
-    def predict_class(self, text, min_df=5, remove_stopwords=True, ngram_range=(1,1), train_data_size=500):
-        self._setup_model(min_df, remove_stopwords, ngram_range, train_data_size)
+    def get_feature_names(self):
+        return list(self.feature_names)
+
+    def predict_class(
+        self,
+        text,
+        min_df=5,
+        remove_stopwords=True,
+        ngram_range=(1,1),
+        train_data_size=500,
+        features_to_remove=None
+    ):
+        self._setup_model(min_df, remove_stopwords, ngram_range, train_data_size, features_to_remove)
         X_instance = self.vectorizer.transform([text]).toarray()
+
+        if features_to_remove:
+            keep_indices = [i for i, f in enumerate(self.vectorizer.get_feature_names_out()) if f not in features_to_remove]
+            X_instance = X_instance[:, keep_indices]
         prediction = self.model.predict(X_instance)[0]
         predicted_class = self.le.inverse_transform([prediction])[0]
         return predicted_class
 
-    def explain(self, text, plot_type="force", min_df=5, top_n=15, remove_stopwords=True, ngram_range=(1,1), train_data_size=500):
-        self._setup_model(min_df, remove_stopwords, ngram_range, train_data_size)
+    def explain(
+        self,
+        text,
+        plot_type="force",
+        min_df=5,
+        top_n=15,
+        remove_stopwords=True,
+        ngram_range=(1,1),
+        train_data_size=500,
+        features_to_remove=None
+    ):
+        self._setup_model(min_df, remove_stopwords, ngram_range, train_data_size, features_to_remove)
         X_instance = self.vectorizer.transform([text]).toarray()
+        if features_to_remove:
+            keep_indices = [i for i, f in enumerate(self.vectorizer.get_feature_names_out()) if f not in features_to_remove]
+            X_instance = X_instance[:, keep_indices]
         prediction = self.model.predict(X_instance)[0]
         predicted_class = self.le.inverse_transform([prediction])[0]
         shap_values = self.explainer(X_instance)

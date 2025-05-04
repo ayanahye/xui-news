@@ -234,6 +234,18 @@
     color: #3a3c8c;
   }
 
+  .custom-select { position: relative; display: inline-block; width: 100%; }
+  .select-button { width: 100%; padding: 0.7em 1em; border: 1.5px solid #a3a0ff; border-radius: 8px; background: #f0f3ff; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .arrow { margin-left: 10px; }
+  .select-dropdown { position: absolute; top: 110%; left: 0; width: 100%; border: 1.5px solid #a3a0ff; border-radius: 8px; background: #fff; box-shadow: 0 10px 25px rgba(90,80,200,0.12); z-index: 2000; padding: 10px; max-height: 350px; overflow-y: auto; }
+  .select-dropdown.hidden { display: none; }
+  #featureListPage { list-style: none; padding: 0; margin: 0 0 8px 0; }
+  #featureListPage li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f3ff; }
+  .remove-feature-btn { background: none; border: none; color: #c00; font-weight: bold; font-size: 1.1em; cursor: pointer; }
+  .pagination-controls { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .pagination-controls button { background: #e3e7ff; border: none; border-radius: 4px; padding: 2px 10px; cursor: pointer; }
+
+
 
     @media (max-width: 700px) {
       .dashboard-container { padding: 0 4vw 18px 4vw; }
@@ -356,9 +368,23 @@
           </div>
 
           <div class="custom-feature-section">
-            <label>Custom Feature Removal</label>
-            <div id="featureList" class="feature-list">
-            </div>
+            <<div class="form-group">
+              <label>Custom Feature Removal</label>
+              <div class="custom-select" id="featureDropdown">
+                <button type="button" class="select-button" onclick="toggleFeatureDropdown()">
+                  Remove Features <span class="arrow">&#9660;</span>
+                </button>
+                <div class="select-dropdown hidden" id="featureListDropdown">
+                  <ul id="featureListPage"></ul>
+                  <div class="pagination-controls">
+                    <button onclick="prevFeaturePage()" id="prevFeatureBtn">&lt;</button>
+                    <span id="featurePageInfo"></span>
+                    <button onclick="nextFeaturePage()" id="nextFeatureBtn">&gt;</button>
+                  </div>
+                </div>
+                <p>Note: Features will refresh after changing N-gram Range. This may take a few seconds.</p>
+              </div>
+            </div>            
             <button class="dashboard-btn" onclick="retrainModel()">Retrain Model</button>
           </div>
           <div id="featureEngResult" class="feature-eng-result"></div>
@@ -366,6 +392,12 @@
     </div>
   </div>
   <script>
+
+    let allFeatures = [];        
+    let removedFeatures = new Set(); 
+    let featurePage = 0;
+    const featuresPerPage = 25;
+
     function showWidget(widget) {
       document.getElementById('widget-predict').style.display = widget === 'predict' ? '' : 'none';
       document.getElementById('widget-feature').style.display = widget === 'feature' ? '' : 'none';
@@ -400,6 +432,7 @@
       };
     }
     window.onload = loadSampledArticles;
+
     function toggleShapPlotType() {
       const method = document.getElementById("methodSelect").value;
       document.getElementById("shapPlotTypeContainer").style.display =
@@ -409,13 +442,17 @@
 
     async function fetchPredictedClass(combinedText) {
       const featureEngParams = getFeatureEngParams();
+      const trainDataSize = document.getElementById("trainDataSize").value;
+      const payload = {
+        combined_text: combinedText,
+        train_data_size: trainDataSize,
+        ...featureEngParams,
+        features_to_remove: Array.from(removedFeatures)
+      };
       const response = await fetch('/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          combined_text: combinedText,
-          ...featureEngParams
-        })
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
       return data.predicted_class || "";
@@ -430,11 +467,75 @@
       };
     }
 
+    function toggleFeatureDropdown() {
+      const dropdown = document.getElementById("featureListDropdown");
+      dropdown.classList.toggle("hidden");
+      if (allFeatures.length === 0) fetchFeatureList();
+    }
+
+    async function fetchFeatureList() {
+      const resp = await fetch('/features');
+      allFeatures = await resp.json();
+      featurePage = 0;
+      renderFeatureListPage();
+    }
+
+    function renderFeatureListPage() {
+      const start = featurePage * featuresPerPage;
+      const end = start + featuresPerPage;
+      const pageFeatures = allFeatures.slice(start, end);
+
+      const ul = document.getElementById("featureListPage");
+      ul.innerHTML = "";
+      pageFeatures.forEach(f => {
+        const li = document.createElement("li");
+        li.textContent = f;
+        if (removedFeatures.has(f)) {
+          li.style.opacity = 0.4;
+        }
+        const btn = document.createElement("button");
+        btn.innerHTML = "&times;";
+        btn.className = "remove-feature-btn";
+        btn.disabled = removedFeatures.has(f);
+        btn.onclick = () => {
+          removedFeatures.add(f);
+          li.style.opacity = 0.4;
+          btn.disabled = true;
+        };
+        li.appendChild(btn);
+        ul.appendChild(li);
+      });
+
+      document.getElementById("featurePageInfo").textContent =
+        `Page ${featurePage + 1} of ${Math.ceil(allFeatures.length / featuresPerPage)}`;
+      document.getElementById("prevFeatureBtn").disabled = featurePage === 0;
+      document.getElementById("nextFeatureBtn").disabled = end >= allFeatures.length;
+    }
+
+    function prevFeaturePage() {
+      if (featurePage > 0) {
+        featurePage--;
+        renderFeatureListPage();
+      }
+    }
+    function nextFeaturePage() {
+      if ((featurePage + 1) * featuresPerPage < allFeatures.length) {
+        featurePage++;
+        renderFeatureListPage();
+      }
+    }
+
     async function retrainModel() {
-      showWidget('predict'); 
+      document.getElementById("featureListDropdown")?.classList.add("hidden");
+      showWidget('predict');
       document.getElementById("featureEngResult").innerText = "Model retrained with new settings!";
-      setTimeout(() => {
-        getExplanation();
+      setTimeout(async () => {
+        await getExplanation();
+        allFeatures = [];
+        await fetchFeatureList();
+        setTimeout(() => {
+          document.getElementById("featureEngResult").innerText = "";
+        }, 2000);
       }, 200);
     }
 
@@ -445,14 +546,10 @@
       const combinedText = headline + " " + shortDescription + " " + authors;
       const method = document.getElementById("methodSelect").value;
       const plotType = document.getElementById("plotTypeSelect").value;
-      // addiitonal params added 
       const minDf = parseInt(document.getElementById("minDfInput").value, 10);
       const topN = parseInt(document.getElementById("numFeaturesInput").value, 10);
-
-      const featureEngParams = getFeatureEngParams();
-
-      // allowing user to choose data too
       const trainDataSize = document.getElementById("trainDataSize").value;
+      const featureEngParams = getFeatureEngParams();
 
       document.getElementById("visualization").innerHTML = "<span style='color:#4a3fbf'>Loading...</span>";
       const payload = {
@@ -462,7 +559,8 @@
         min_df: minDf,
         top_n: topN,
         train_data_size: trainDataSize,
-        ...featureEngParams
+        ...featureEngParams,
+        features_to_remove: Array.from(removedFeatures)
       };
 
       const response = await fetch('/explain', {
@@ -506,6 +604,13 @@
         document.getElementById("predClass").innerText = "";
       }
     }
+
+    document.getElementById("ngramRange").addEventListener("change", async function() {
+      await getExplanation(); 
+      allFeatures = [];
+      await fetchFeatureList();
+    });
+
   </script>
 </body>
 </html>

@@ -11,8 +11,15 @@ from sklearn.preprocessing import LabelEncoder
 
 _pipeline_cache = {}
 
-def get_lime_pipeline(min_df=5, remove_stopwords=True, ngram_range=(1,1), train_data_size=500):
-    cache_key = (min_df, remove_stopwords, ngram_range, train_data_size)
+def get_lime_pipeline(
+    min_df=5,
+    remove_stopwords=True,
+    ngram_range=(1,1),
+    train_data_size=500,
+    features_to_remove=None
+):
+    features_to_remove = features_to_remove or []
+    cache_key = (min_df, remove_stopwords, ngram_range, train_data_size, tuple(sorted(features_to_remove)))
     if cache_key in _pipeline_cache:
         return _pipeline_cache[cache_key]
     df = pd.read_json("News_Category_Dataset_v3.json", lines=True)
@@ -35,10 +42,36 @@ def get_lime_pipeline(min_df=5, remove_stopwords=True, ngram_range=(1,1), train_
         stop_words=stop_words,
         ngram_range=ngram_range
     )
-    pipeline = make_pipeline(vectorizer, RandomForestClassifier())
+    X_vec = vectorizer.fit_transform(X).toarray()
+    feature_names = vectorizer.get_feature_names_out()
+
+    if features_to_remove:
+        keep_indices = [i for i, f in enumerate(feature_names) if f not in features_to_remove]
+        X_vec = X_vec[:, keep_indices]
+        feature_names = feature_names[keep_indices]
+
+    class CustomVectorizer:
+        def __init__(self, vectorizer, keep_indices):
+            self.vectorizer = vectorizer
+            self.keep_indices = keep_indices
+        def transform(self, X):
+            X_vec = self.vectorizer.transform(X).toarray()
+            if self.keep_indices is not None:
+                X_vec = X_vec[:, self.keep_indices]
+            return X_vec
+        def fit(self, X, y=None):
+            return self
+
+    keep_indices = None
+    if features_to_remove:
+        keep_indices = [i for i, f in enumerate(vectorizer.get_feature_names_out()) if f not in features_to_remove]
+
+    custom_vectorizer = CustomVectorizer(vectorizer, keep_indices)
+    pipeline = make_pipeline(custom_vectorizer, RandomForestClassifier())
     pipeline.fit(X, y_encoded)
-    _pipeline_cache[cache_key] = (pipeline, vectorizer, le, class_names)
-    return pipeline, vectorizer, le, class_names
+
+    _pipeline_cache[cache_key] = (pipeline, vectorizer, le, class_names, keep_indices)
+    return pipeline, vectorizer, le, class_names, keep_indices
 
 def explain_with_lime(
     text_instance,
@@ -46,9 +79,12 @@ def explain_with_lime(
     num_features=6,
     remove_stopwords=True,
     ngram_range=(1,1),
-    train_data_size=500
+    train_data_size=500,
+    features_to_remove=None
 ):
-    pipeline, vectorizer, le, class_names = get_lime_pipeline(min_df, remove_stopwords, ngram_range, train_data_size)
+    pipeline, vectorizer, le, class_names, keep_indices = get_lime_pipeline(
+        min_df, remove_stopwords, ngram_range, train_data_size, features_to_remove
+    )
     explainer = LimeTextExplainer(class_names=class_names)
     # https://lime-ml.readthedocs.io/en/latest/lime.html
     # additional params could add: num_samples (size of neighborhood to learn the linear model)
@@ -57,6 +93,9 @@ def explain_with_lime(
         text_instance, pipeline.predict_proba, num_features=num_features
     )
     html = exp.as_html()
-    prediction = pipeline.predict([text_instance])[0]
+    X_instance = vectorizer.transform([text_instance]).toarray()
+    if keep_indices is not None:
+        X_instance = X_instance[:, keep_indices]
+    prediction = pipeline.named_steps['randomforestclassifier'].predict(X_instance)[0]
     predicted_class = le.inverse_transform([prediction])[0]
     return {"visualization": html, "predicted_class": predicted_class}
