@@ -13,8 +13,12 @@
       min-height: 100vh;
     }
     .site-header {
-      width: 100%;
-      background: #fff;
+      position: fixed;     
+      top: 0;              
+      left: 0;            
+      width: 100%;      
+      z-index: 1000;        
+      background: #fff;    
       box-shadow: 0 2px 16px 0 rgba(90, 80, 200, 0.10);
       padding: 32px 0 24px 0;
       text-align: center;
@@ -31,6 +35,7 @@
       border-radius: 18px;
       box-shadow: 0 6px 32px 0 rgba(90, 80, 200, 0.13);
       padding: 0 38px 38px 38px;
+      padding-top: 15vh;
     }
     .widget-tabs {
       display: flex;
