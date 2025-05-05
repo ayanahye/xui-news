@@ -340,6 +340,55 @@
     text-shadow: 0 2px 12px #7b5cff22;
   }
 
+  .leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px #7b5cff11;
+  }
+  .leaderboard-table th, .leaderboard-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #e3e7ff;
+    font-size: 1em;
+  }
+  .leaderboard-table th {
+    background: #f0f3ff;
+    color: #4a3fbf;
+    font-weight: 600;
+  }
+  .leaderboard-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .modal {
+    position: fixed;
+    z-index: 10000;
+    left: 0; top: 0; width: 100%; height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal.hidden {
+    display: none;
+  }
+  .modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .modal-close {
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
     @media (max-width: 700px) {
       .dashboard-container { padding: 0 4vw 18px 4vw; }
       .form-row { flex-direction: column; gap: 0; }
@@ -372,6 +421,7 @@
     <div class="widget-tabs">
       <button class="widget-tab active" id="tab-predict" onclick="showWidget('predict')">News Category Prediction</button>
       <button class="widget-tab" id="tab-feature" onclick="showWidget('feature')">Feature Engineering</button>
+      <button class="widget-tab" id="tab-leaderboard" onclick="showWidget('leaderboard')">Data Leaderboard</button>
     </div>
 
     <div class="widget-content" id="widget-predict">
@@ -496,6 +546,25 @@
         </div>
         <div id="featureEngResult" class="feature-eng-result"></div>
       </div>
+    </div>
+
+    <div class="widget-content" id="widget-leaderboard" style="display:none;">
+      <div class="feature-eng-section">
+        <h2>Training Examples Sorted by Shapley Value (not done)</h2>
+        <div id="leaderboard-table-container">
+          <!-- js will be populated here -->
+        </div>
+        <p style="margin-top:12px; color:#4a3fbf; font-size:1.05em;">
+          These are the training articles that are considered the most 'valuable', as measured by KNN-Shapley values.
+        </p>
+      </div>
+    </div>
+  </div>
+  <div id="articleModal" class="modal hidden">
+    <div class="modal-content">
+      <span id="modalCloseBtn" class="modal-close">&times;</span>
+      <h3 id="modalLabel"></h3>
+      <p id="modalText"></p>
     </div>
   </div>
   <script>
@@ -721,12 +790,74 @@
     arrow.style.top = top + "px";
   }
 
-    function showWidget(widget) {
-      document.getElementById('widget-predict').style.display = widget === 'predict' ? '' : 'none';
-      document.getElementById('widget-feature').style.display = widget === 'feature' ? '' : 'none';
-      document.getElementById('tab-predict').classList.toggle('active', widget === 'predict');
-      document.getElementById('tab-feature').classList.toggle('active', widget === 'feature');
+  function showWidget(widget) {
+    document.getElementById('widget-predict').style.display = widget === 'predict' ? '' : 'none';
+    document.getElementById('widget-feature').style.display = widget === 'feature' ? '' : 'none';
+    document.getElementById('widget-leaderboard').style.display = widget === 'leaderboard' ? '' : 'none';
+    document.getElementById('tab-predict').classList.toggle('active', widget === 'predict');
+    document.getElementById('tab-feature').classList.toggle('active', widget === 'feature');
+    document.getElementById('tab-leaderboard').classList.toggle('active', widget === 'leaderboard');
+    if (widget === 'leaderboard') {
+      loadLeaderboard();
     }
+  }
+
+    async function loadLeaderboard() {
+      const res = await fetch('/leaderboard');
+      const leaderboardData = await res.json();
+      renderLeaderboardTable(leaderboardData);
+    }
+
+    function renderLeaderboardTable(data) {
+      const container = document.getElementById('leaderboard-table-container');
+      if (!data || !data.length) {
+        container.innerHTML = '<em>No leaderboard data available.</em>';
+        return;
+      }
+      let html = `<table class="leaderboard-table" style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="background:#e3e7ff;">
+            <th>#</th>
+            <th>Shapley Value</th>
+            <th>Category</th>
+            <th>Text Preview</th>
+          </tr>
+        </thead>
+        <tbody>`;
+      data.forEach((item, i) => {
+        html += `<tr class="leaderboard-row" data-index="${i}" style="cursor:pointer;">
+          <td style="text-align:center;">${i + 1}</td>
+          <td style="color:#4a3fbf; font-weight:600;">${item.value.toFixed(5)}</td>
+          <td>${item.label}</td>
+          <td>${item.text.slice(0, 60)}...</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+
+      document.querySelectorAll('.leaderboard-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const idx = row.getAttribute('data-index');
+          showArticleModal(data[idx]);
+        });
+      });
+    }
+
+    function showArticleModal(item) {
+      document.getElementById('modalLabel').innerText = `Category: ${item.label}`;
+      document.getElementById('modalText').innerText = item.text;
+      document.getElementById('articleModal').classList.remove('hidden');
+    }
+
+    document.getElementById('modalCloseBtn').addEventListener('click', () => {
+      document.getElementById('articleModal').classList.add('hidden');
+    });
+
+    document.getElementById('articleModal').addEventListener('click', (e) => {
+      if (e.target.id === 'articleModal') {
+        document.getElementById('articleModal').classList.add('hidden');
+      }
+    });
 
     async function loadSampledArticles() {
       const response = await fetch('/sampled_articles');

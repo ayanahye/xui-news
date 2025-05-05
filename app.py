@@ -3,10 +3,12 @@ import pandas as pd
 from explanations.shap_explainer import ShapExplainer
 from explanations.lime_explainer import explain_with_lime
 import os
+from explanations.knn_shap_explainer import KNNShapExplainer
 
 app = Flask(__name__)
 
 shap_explainer = ShapExplainer()
+knn_shap_explainer = KNNShapExplainer()
 
 @app.route('/')
 def index():
@@ -121,6 +123,15 @@ def sampled_articles():
         cat_articles = df_sampled[df_sampled['category'] == cat].sample(n=per_category, random_state=1)
         articles.extend(cat_articles[['headline', 'short_description', 'authors', 'category']].to_dict(orient='records'))
     return jsonify(articles)
+
+@app.route('/leaderboard')
+def leaderboard():
+    try:
+        leaderboard = knn_shap_explainer.compute_leaderboard()
+        return jsonify(leaderboard)
+    except Exception as e:
+        print(f"Leaderboard API Error: {str(e)}")
+        return jsonify({"error": str(e)}), 500  
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
