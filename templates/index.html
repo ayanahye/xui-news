@@ -389,6 +389,20 @@
     cursor: pointer;
   }
 
+  .tutorial-close {
+    position: absolute;
+    top: 8px;
+    right: 14px;
+    font-size: 2em;
+    color: #4a3fbf;
+    cursor: pointer;
+    z-index: 2;
+    line-height: 1;
+  }
+  .tutorial-close:hover {
+    color: #c00;
+  }
+
     @media (max-width: 700px) {
       .dashboard-container { padding: 0 4vw 18px 4vw; }
       .form-row { flex-direction: column; gap: 0; }
@@ -408,6 +422,7 @@
   
   <div id="tutorialOverlay" class="tutorial-overlay hidden"></div>
   <div id="tutorialBar" class="tutorial-bar hidden">
+    <span id="tutorialCloseBtn" class="tutorial-close" style="display:none;">&times;</span>
     <div id="tutorialArrow" class="tutorial-arrow"></div>
     <div id="tutorialText"></div>
     <div class="tutorial-nav">
@@ -416,6 +431,7 @@
       <button onclick="endTutorial()" id="tutorialEndBtn">End Tutorial</button>
     </div>
   </div>
+  
 
   <div class="dashboard-container">
     <div class="widget-tabs">
@@ -670,17 +686,95 @@
   let tutorialStep = 0;
 
   function startTutorial() {
-  document.getElementById("tutorialOverlay").classList.remove("hidden");
-  document.getElementById("tutorialBar").classList.remove("hidden");
-  tutorialStep = 0;
-  showTutorialStep();
+    document.getElementById("tutorialOverlay").classList.remove("hidden");
+    document.getElementById("tutorialBar").classList.remove("hidden");
+    document.querySelector('.tutorial-nav').style.display = 'flex';
+    document.getElementById('tutorialCloseBtn').style.display = 'none';
+    tutorialStep = 0;
+    showTutorialStep();
   }
 
-  function endTutorial() {
-  document.getElementById("tutorialOverlay").classList.add("hidden");
-  document.getElementById("tutorialBar").classList.add("hidden");
-  removeArrow();
+  function showPlotExplanation(plotType) {
+  const explanations = {
+    force: `
+      <strong>Force Plot Explanation:</strong><br>
+      This plot shows how each feature pushes the prediction higher (red) or lower (blue) compared to the base value.
+      The length of each bar represents the strength of the effect.<br>
+    `,
+    beeswarm: `
+      <strong>Beeswarm Plot Explanation:</strong><br>
+      Each dot represents a sample. Horizontal position shows SHAP value (impact on prediction) Values more to the right have higher shap_value. Features are ordered by importance.
+    `,
+    summary: `
+      <strong>Summary Plot Explanation:</strong><br>
+      Bar chart showing average absolute SHAP value per feature, summarizing global feature importance.
+      Longer bars mean greater overall impact on predictions.
+    `,
+    waterfall: `
+      <strong>Waterfall Plot Explanation:</strong><br>
+      Breaks down the prediction for a single instance, showing how each feature contributes to moving from the base value to the final prediction.
+      Red bars push prediction down; green bars push it up.
+    `,
+    lime: `
+    <strong>LIME Explanation:</strong><br>
+    LIME explains a single prediction by approximating the model locally with a simple, interpretable model (like linear regression).<br>
+    The plot shows which features (words or phrases) contributed most to the prediction for this specific article. Darker color words contribute more.<br>
+    <ul>
+      <li><span style="color:#4a3fbf;">Blue bars</span> push the prediction to the class on the left</li>
+      <li><span style="color:#cc6900;">Orange bars</span> push the prediction to the class on the right.</li>
+      <li>The longer the bar, the stronger the effect.</li>
+    </ul>
+    This helps you see why the model made its decision for this article.
+  `
+  };
+
+  const tutorialBar = document.getElementById('tutorialBar');
+  const tutorialOverlay = document.getElementById('tutorialOverlay');
+  const tutorialText = document.getElementById('tutorialText');
+  const closeBtn = document.getElementById('tutorialCloseBtn');
+  const arrow = document.getElementById('tutorialArrow');
+
+  tutorialText.innerHTML = explanations[plotType] || "No explanation available for this plot type.";
+
+  //tutorialOverlay.classList.remove('hidden');
+  tutorialBar.classList.remove('hidden');
+
+  document.querySelector('.tutorial-nav').style.display = 'none';
+  closeBtn.style.display = 'block';
+
+  const viz = document.getElementById('visualization');
+  const rect = viz.getBoundingClientRect();
+
+  let leftPos = window.scrollX + rect.left - tutorialBar.offsetWidth - 8;
+
+  if (leftPos < 8) {
+    leftPos = window.scrollX + rect.right + 8;
+    arrow.style.transform = 'translateY(-50%) rotate(0deg)';
+    arrow.style.right = 'auto';
+    arrow.style.left = '-20px';
+  } else {
+    arrow.style.transform = 'translateY(-50%) rotate(180deg)';
+    arrow.style.left = 'auto';
+    arrow.style.right = '-20px';
   }
+
+  const topPos = window.scrollY + rect.top + rect.height / 2 - tutorialBar.offsetHeight / 2;
+
+  tutorialBar.style.position = 'absolute';
+  tutorialBar.style.top = `${topPos}px`;
+  tutorialBar.style.left = `${leftPos}px`;
+
+  closeBtn.onclick = function() {
+    tutorialOverlay.classList.add('hidden');
+    tutorialBar.classList.add('hidden');
+  };
+}
+
+  function endTutorial() {
+    document.getElementById('tutorialOverlay').classList.add('hidden');
+    document.getElementById('tutorialBar').classList.add('hidden');
+  }
+
 
   function showTutorialStep() {
   const step = tutorialSteps[tutorialStep];
@@ -690,6 +784,8 @@
   } else if (step.module === "feature") {
     showWidget('feature');
   }
+
+  
 
   const elem = document.querySelector(step.selector);
   const tutorialBar = document.getElementById("tutorialBar");
@@ -1056,6 +1152,12 @@
       } else {
         document.getElementById("visualization").innerHTML = "<em>No visualization available.</em>";
         document.getElementById("predClass").innerText = "";
+      }
+
+      if (method === "LIME") {
+        showPlotExplanation('lime');
+      } else {
+        showPlotExplanation(plotType);
       }
     }
 
