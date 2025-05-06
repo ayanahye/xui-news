@@ -699,11 +699,12 @@
     force: `
       <strong>Force Plot Explanation:</strong><br>
       This plot shows how each feature pushes the prediction higher (red) or lower (blue) compared to the base value.
+      The base value is the expected value (the mean of the models predictions for the training data).
       The length of each bar represents the strength of the effect.<br>
     `,
     beeswarm: `
       <strong>Beeswarm Plot Explanation:</strong><br>
-      Each dot represents a sample. Horizontal position shows SHAP value (impact on prediction) Values more to the right have higher shap_value. Features are ordered by importance.
+      Each dot represents a sample. Horizontal position shows SHAP value (impact on prediction) Values more to the right have higher shap_value, while left values are lower. Features are ordered by importance.
     `,
     summary: `
       <strong>Summary Plot Explanation:</strong><br>
@@ -713,6 +714,7 @@
     waterfall: `
       <strong>Waterfall Plot Explanation:</strong><br>
       Breaks down the prediction for a single instance, showing how each feature contributes to moving from the base value to the final prediction.
+      The base value is the expected value (the mean of the models predictions for the training data).
       Red bars push prediction down; green bars push it up.
     `,
     lime: `
