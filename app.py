@@ -5,10 +5,14 @@ from explanations.lime_explainer import explain_with_lime
 import os
 from explanations.knn_shap_explainer import KNNShapExplainer
 
+from explanations.beta_shap_explainer import BetaShapExplainer
+
+
 app = Flask(__name__)
 
 shap_explainer = ShapExplainer()
 knn_shap_explainer = KNNShapExplainer()
+beta_shap_explainer = BetaShapExplainer()
 
 @app.route('/')
 def index():
@@ -30,7 +34,7 @@ def explain():
             ngram_range = tuple(ngram_range)
 
 
-        train_data_size = data.get('train_data_size', 500)
+        train_data_size = data.get('train_data_size', 100)
         if train_data_size == "all":
             train_data_size = 5000
         else:
@@ -81,7 +85,7 @@ def predict():
         ngram_range = data.get('ngram_range', [1, 1])
         if isinstance(ngram_range, list):
             ngram_range = tuple(ngram_range)
-        train_data_size = data.get('train_data_size', 500)
+        train_data_size = data.get('train_data_size', 100)
         if train_data_size == "all":
             train_data_size = 5000
         else:
@@ -116,22 +120,43 @@ def sampled_articles():
     df['combined_text'] = df['headline'] + " " + df['short_description'] + " " + df['authors'].fillna('')
     categories = df['category'].unique()
     selected_categories = pd.Series(categories).sample(n=3, random_state=42).tolist()
-    df_sampled = df[df['category'].isin(selected_categories)].sample(n=500, random_state=42)
+    df_sampled = df[df['category'].isin(selected_categories)].sample(n=100, random_state=42)
     articles = []
     per_category = 3
     for cat in selected_categories:
-        cat_articles = df_sampled[df_sampled['category'] == cat].sample(n=per_category, random_state=1)
+        cat_df = df_sampled[df_sampled['category'] == cat]
+        sample_size = min(per_category, len(cat_df)) 
+        if sample_size == 0:
+            continue  
+        cat_articles = cat_df.sample(n=sample_size, random_state=1)
         articles.extend(cat_articles[['headline', 'short_description', 'authors', 'category']].to_dict(orient='records'))
+
     return jsonify(articles)
 
 @app.route('/leaderboard')
 def leaderboard():
     try:
-        leaderboard = knn_shap_explainer.compute_leaderboard()
-        return jsonify(leaderboard)
+        knn_leaderboard = knn_shap_explainer.compute_leaderboard()
+        beta_leaderboard = beta_shap_explainer.compute_leaderboard()
+
+        beta_dict = {item['index']: item for item in beta_leaderboard}
+        combined = []
+        for knn_item in knn_leaderboard:
+            idx = knn_item['index']
+            beta_item = beta_dict.get(idx, {})
+            combined.append({
+                "index": idx,
+                "value": knn_item['value'], 
+                "beta_shapley": beta_item.get('beta_shapley', None),
+                "loo": beta_item.get('loo', None),
+                "text": knn_item['text'],
+                "label": knn_item['label']
+            })
+        combined = sorted(combined, key=lambda x: x['value'], reverse=True)
+        return jsonify(combined)
     except Exception as e:
         print(f"Leaderboard API Error: {str(e)}")
-        return jsonify({"error": str(e)}), 500  
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

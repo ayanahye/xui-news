@@ -475,6 +475,7 @@
         <div class="form-group" style="flex:1">
           <label for="trainDataSize">Dataset Size</label>
           <select id="trainDataSize">
+            <option value="100">100</option>
             <option value="500">500</option>
             <option value="1000">1000</option>
             <option value="1500">1500</option>
@@ -916,7 +917,9 @@
         <thead>
           <tr style="background:#e3e7ff;">
             <th>#</th>
-            <th>Shapley Value</th>
+            <th>KNN-Shapley</th>
+            <th>Beta Shapley</th>
+            <th>LOO</th>
             <th>Category</th>
             <th>Text Preview</th>
           </tr>
@@ -926,6 +929,8 @@
         html += `<tr class="leaderboard-row" data-index="${i}" style="cursor:pointer;">
           <td style="text-align:center;">${i + 1}</td>
           <td style="color:#4a3fbf; font-weight:600;">${item.value.toFixed(5)}</td>
+          <td style="color:#b35dff; font-weight:600;">${item.beta_shapley !== null ? item.beta_shapley.toFixed(5) : "N/A"}</td>
+          <td style="color:#ff7f0e; font-weight:600;">${item.loo !== null ? item.loo.toFixed(5) : "N/A"}</td>
           <td>${item.label}</td>
           <td>${item.text.slice(0, 60)}...</td>
         </tr>`;
@@ -940,6 +945,7 @@
         });
       });
     }
+
 
     function showArticleModal(item) {
       document.getElementById('modalLabel').innerText = `Category: ${item.label}`;

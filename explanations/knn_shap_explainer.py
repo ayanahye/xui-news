@@ -29,7 +29,7 @@ class KNNShapExplainer:
 
         categories = df['category'].unique()
         selected_categories = pd.Series(categories).sample(n=3, random_state=42).tolist()
-        df_sampled = df[df['category'].isin(selected_categories)].sample(n=500, random_state=42)
+        df_sampled = df[df['category'].isin(selected_categories)].sample(n=100, random_state=42)
 
         X = df_sampled['combined_text'].reset_index(drop=True)
         y = df_sampled['category'].reset_index(drop=True)
