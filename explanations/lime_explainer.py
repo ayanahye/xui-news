@@ -15,7 +15,7 @@ def get_lime_pipeline(
     min_df=5,
     remove_stopwords=True,
     ngram_range=(1,1),
-    train_data_size=100,
+    train_data_size=300,
     features_to_remove=None
 ):
     features_to_remove = features_to_remove or []
@@ -79,7 +79,7 @@ def explain_with_lime(
     num_features=6,
     remove_stopwords=True,
     ngram_range=(1,1),
-    train_data_size=100,
+    train_data_size=300,
     features_to_remove=None
 ):
     pipeline, vectorizer, le, class_names, keep_indices = get_lime_pipeline(

@@ -475,7 +475,7 @@
         <div class="form-group" style="flex:1">
           <label for="trainDataSize">Dataset Size</label>
           <select id="trainDataSize">
-            <option value="100">100</option>
+            <option value="300">300</option>
             <option value="500">500</option>
             <option value="1000">1000</option>
             <option value="1500">1500</option>
@@ -505,6 +505,9 @@
       </div>
       <div class="predicted-category">
         Predicted Category: <span id="predClass"></span>
+      </div>
+       <div id="modelAccuracy" style="font-weight:bold; margin-bottom: 10px; color: #2a7a3b;">
+        Model Accuracy: Loading...
       </div>
       <div id="visualization"></div>
     </div>
@@ -917,7 +920,6 @@
         <thead>
           <tr style="background:#e3e7ff;">
             <th>#</th>
-            <th>KNN-Shapley</th>
             <th>Beta Shapley</th>
             <th>LOO</th>
             <th>Category</th>
@@ -928,13 +930,13 @@
       data.forEach((item, i) => {
         html += `<tr class="leaderboard-row" data-index="${i}" style="cursor:pointer;">
           <td style="text-align:center;">${i + 1}</td>
-          <td style="color:#4a3fbf; font-weight:600;">${item.value.toFixed(5)}</td>
           <td style="color:#b35dff; font-weight:600;">${item.beta_shapley !== null ? item.beta_shapley.toFixed(5) : "N/A"}</td>
           <td style="color:#ff7f0e; font-weight:600;">${item.loo !== null ? item.loo.toFixed(5) : "N/A"}</td>
           <td>${item.label}</td>
           <td>${item.text.slice(0, 60)}...</td>
         </tr>`;
       });
+
       html += '</tbody></table>';
       container.innerHTML = html;
 
@@ -946,6 +948,40 @@
       });
     }
 
+    async function loadModelAccuracy() {
+      const min_df = parseInt(document.getElementById('minDfInput').value, 10) || 5;
+      const ngram_range = document.getElementById('ngramRange').value.split(',').map(Number);
+      const train_data_size = document.getElementById('trainDataSize').value;
+      const remove_stopwords = document.getElementById('removeStopwords').checked;
+      const features_to_remove = Array.from(removedFeatures);
+
+      const payload = {
+        min_df,
+        ngram_range,
+        train_data_size,
+        remove_stopwords,
+        features_to_remove
+      };
+
+      try {
+        const res = await fetch('/model_accuracy', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.accuracy !== undefined) {
+          const accuracyPercent = (data.accuracy * 100).toFixed(2);
+          document.getElementById('modelAccuracy').innerText =
+            `Model Accuracy: ${accuracyPercent}%`;
+        } else {
+          document.getElementById('modelAccuracy').innerText = 'Model Accuracy: N/A';
+        }
+      } catch (error) {
+        console.error('Error loading model accuracy:', error);
+        document.getElementById('modelAccuracy').innerText = 'Model Accuracy: Error';
+      }
+    }
 
     function showArticleModal(item) {
       document.getElementById('modalLabel').innerText = `Category: ${item.label}`;
@@ -1167,6 +1203,8 @@
       } else {
         showPlotExplanation(plotType);
       }
+
+      await loadModelAccuracy()
     }
 
     document.getElementById("ngramRange").addEventListener("change", async function() {
@@ -1174,6 +1212,11 @@
       allFeatures = [];
       await fetchFeatureList();
     });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadModelAccuracy();
+    });
+
 
   </script>
 </body>
