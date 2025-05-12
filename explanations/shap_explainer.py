@@ -111,7 +111,7 @@ class ShapExplainer:
         top_n=15,
         remove_stopwords=True,
         ngram_range=(1,1),
-        train_data_size=100,
+        train_data_size=300,
         features_to_remove=None
     ):
         self._setup_model(min_df, remove_stopwords, ngram_range, train_data_size, features_to_remove)

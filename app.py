@@ -189,14 +189,29 @@ def model_accuracy():
         print(f"Model Accuracy API Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
     
-@app.route('/leaderboard')
+@app.route('/leaderboard', methods=['POST'])
 def leaderboard():
     try:
-        leaderboard = beta_shap_explainer.compute_leaderboard()
+        data = request.json
+        alpha = int(data.get('alpha', 16))
+        beta = int(data.get('beta', 1))
+        permutations = int(data.get('permutations', 2))
+        utility = data.get('utility', 'likelihood')
+        min_df = int(data.get('min_df', 5))
+        ngram_range = tuple(data.get('ngram_range', [1, 1]))
+        train_data_size = int(data.get('train_data_size', 300))
+        features_to_remove = data.get('features_to_remove', [])
+        remove_stopwords = data.get('remove_stopwords', True)
+
+        leaderboard = beta_shap_explainer.compute_leaderboard(
+            alpha=alpha, beta=beta, permutations=permutations, utility=utility,
+            min_df=min_df, ngram_range=ngram_range, train_data_size=train_data_size,
+            features_to_remove=features_to_remove, remove_stopwords=remove_stopwords
+        )
         return jsonify(leaderboard)
     except Exception as e:
         print(f"Leaderboard API Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
-    
+
 if __name__ == "__main__":
     app.run(port=5000)

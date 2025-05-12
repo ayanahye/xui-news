@@ -403,6 +403,68 @@
     color: #c00;
   }
 
+  #widget-betashap .form-group input[type="number"],
+  #widget-betashap .form-group select {
+    border: 2px solid #7b5cff;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 1.08em;
+    background: #f6f8ff;
+    color: #3a3c8c;
+    transition: border 0.2s, background 0.2s;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    box-shadow: 0 1px 6px #7b5cff11;
+  }
+
+  #widget-betashap .form-group input[type="number"]:focus,
+  #widget-betashap .form-group select:focus {
+    border-color: #3a8dff;
+    background: #fff;
+    outline: none;
+  }
+
+  #widget-betashap label {
+    color: #7b5cff;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  #widget-betashap .dashboard-btn {
+    margin-top: 14px;
+    background: linear-gradient(90deg, #7b5cff 0%, #3a8dff 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0 28px;
+    font-size: 1.08em;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 12px #7b5cff55;
+    transition: background 0.2s, transform 0.1s;
+    height: 40px;
+  }
+
+  #widget-betashap .dashboard-btn:hover {
+    background: linear-gradient(90deg, #3a8dff 0%, #7b5cff 100%);
+    transform: translateY(-2px) scale(1.03);
+  }
+
+  #betashapSaveMsg {
+    font-size: 1.08em;
+    font-weight: 500;
+    color: #2a7a3b;
+    margin-left: 12px;
+    transition: opacity 0.2s;
+  }
+
+  .beta-shap-section h2 {
+     margin-top: 0;
+    color: #4a3fbf;
+    font-size: 1.3em;
+    margin-bottom: 18px;
+  }
+
     @media (max-width: 700px) {
       .dashboard-container { padding: 0 4vw 18px 4vw; }
       .form-row { flex-direction: column; gap: 0; }
@@ -431,12 +493,12 @@
       <button onclick="endTutorial()" id="tutorialEndBtn">End Tutorial</button>
     </div>
   </div>
-  
 
   <div class="dashboard-container">
     <div class="widget-tabs">
       <button class="widget-tab active" id="tab-predict" onclick="showWidget('predict')">News Category Prediction</button>
       <button class="widget-tab" id="tab-feature" onclick="showWidget('feature')">Feature Engineering</button>
+      <button class="widget-tab" id="tab-betashap" onclick="showWidget('betashap')">Beta Shapley Params</button>
       <button class="widget-tab" id="tab-leaderboard" onclick="showWidget('leaderboard')">Data Leaderboard</button>
     </div>
 
@@ -565,6 +627,39 @@
           <button class="dashboard-btn" onclick="retrainModel()">Retrain Model</button>
         </div>
         <div id="featureEngResult" class="feature-eng-result"></div>
+      </div>
+    </div>
+
+    <div class="widget-content" id="widget-betashap" style="display:none;" >
+      <div class="beta-shap-section">
+        <h2>Beta Shapley Parameters</h2>
+        <form id="betashapForm" onsubmit="event.preventDefault(); saveBetaShapParams();">
+          <div class="form-row">
+            <div class="form-group" style="flex:1">
+              <label for="alphaInput">Alpha (α)</label>
+              <input type="number" id="alphaInput" min="1" max="100" value="16" />
+            </div>
+            <div class="form-group" style="flex:1">
+              <label for="betaInput">Beta (β)</label>
+              <input type="number" id="betaInput" min="1" max="100" value="1" />
+            </div>
+            <div class="form-group" style="flex:1">
+              <label for="permInput"># Permutations</label>
+              <input type="number" id="permInput" min="1" max="100" value="10" />
+            </div>
+            <div class="form-group" style="flex:1">
+              <label for="utilityInput">Utility Function</label>
+              <select id="utilityInput">
+                <option value="likelihood">Log-Likelihood</option>
+                <option value="accuracy">Accuracy</option>
+                <option value="f1">F1 Score</option>
+                <option value="auc">AUC</option>
+              </select>
+            </div>
+          </div>
+          <button class="dashboard-btn" type="submit">Save Beta Shapley Params</button>
+          <span id="betashapSaveMsg" style="margin-left:10px; color:#2a7a3b;"></span>
+        </form>
       </div>
     </div>
 
@@ -895,14 +990,17 @@
   function showWidget(widget) {
     document.getElementById('widget-predict').style.display = widget === 'predict' ? '' : 'none';
     document.getElementById('widget-feature').style.display = widget === 'feature' ? '' : 'none';
+    document.getElementById('widget-betashap').style.display = widget === 'betashap' ? '' : 'none';
     document.getElementById('widget-leaderboard').style.display = widget === 'leaderboard' ? '' : 'none';
     document.getElementById('tab-predict').classList.toggle('active', widget === 'predict');
     document.getElementById('tab-feature').classList.toggle('active', widget === 'feature');
+    document.getElementById('tab-betashap').classList.toggle('active', widget === 'betashap');
     document.getElementById('tab-leaderboard').classList.toggle('active', widget === 'leaderboard');
     if (widget === 'leaderboard') {
       loadLeaderboard();
     }
   }
+
 
     async function loadLeaderboard() {
       const res = await fetch('/leaderboard');
@@ -981,6 +1079,56 @@
         console.error('Error loading model accuracy:', error);
         document.getElementById('modelAccuracy').innerText = 'Model Accuracy: Error';
       }
+    }
+
+    function saveBetaShapParams() {
+      const alpha = parseInt(document.getElementById('alphaInput').value, 10);
+      const beta = parseInt(document.getElementById('betaInput').value, 10);
+      const permutations = parseInt(document.getElementById('permInput').value, 10);
+      const utility = document.getElementById('utilityInput').value;
+      window.betaShapParams = { alpha, beta, permutations, utility };
+      localStorage.setItem('betaShapParams', JSON.stringify(window.betaShapParams));
+      document.getElementById('betashapSaveMsg').innerText = "Saved!";
+      setTimeout(() => document.getElementById('betashapSaveMsg').innerText = "", 1500);
+    }
+
+    function loadBetaShapParams() {
+      let params = localStorage.getItem('betaShapParams');
+      if (params) {
+        params = JSON.parse(params);
+        document.getElementById('alphaInput').value = params.alpha;
+        document.getElementById('betaInput').value = params.beta;
+        document.getElementById('permInput').value = params.permutations;
+        document.getElementById('utilityInput').value = params.utility;
+        window.betaShapParams = params;
+      } else {
+        window.betaShapParams = {
+          alpha: 16, beta: 1, permutations: 10, utility: 'likelihood'
+        };
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', loadBetaShapParams);
+
+    function getBetaShapParams() {
+      return {
+        alpha: parseInt(document.getElementById('alphaInput').value, 10),
+        beta: parseInt(document.getElementById('betaInput').value, 10),
+        permutations: parseInt(document.getElementById('permInput').value, 10),
+        utility: document.getElementById('utilityInput').value
+      };
+    }
+
+
+    async function loadLeaderboard() {
+      const betaShapParams = getBetaShapParams();
+      const res = await fetch('/leaderboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(betaShapParams)
+      });
+      const leaderboardData = await res.json();
+      renderLeaderboardTable(leaderboardData);
     }
 
     function showArticleModal(item) {
