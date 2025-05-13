@@ -4,6 +4,7 @@
   <title>Explainable News Classifier</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
@@ -465,6 +466,26 @@
     margin-bottom: 18px;
   }
 
+  .info-btn {
+    background: #e3e7ff;
+    border: none;
+    border-radius: 50%;
+    width: 1.2em;
+    height: 1.2em;
+    font-weight: bold;
+    color: #4a3fbf;
+    margin-left: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    padding: 0;
+    vertical-align: middle;
+    transition: background 0.2s;
+   }
+    .info-btn:hover {
+      background: #b35dff;
+      color: #fff;
+    }
+
     @media (max-width: 700px) {
       .dashboard-container { padding: 0 4vw 18px 4vw; }
       .form-row { flex-direction: column; gap: 0; }
@@ -666,11 +687,14 @@
     <div class="widget-content" id="widget-leaderboard" style="display:none;">
       <div class="feature-eng-section">
         <h2>Training Examples Sorted by Shapley Value (not done)</h2>
+        <button class="dashboard-btn" id="load-leaderboard-btn" style="margin-bottom: 12px;">
+          Load Leaderboard
+        </button>
         <div id="leaderboard-table-container">
           <!-- js will be populated here -->
         </div>
         <p style="margin-top:12px; color:#4a3fbf; font-size:1.05em;">
-          These are the training articles that are considered the most 'valuable', as measured by KNN-Shapley values.
+          These are the training articles that are considered the most 'valuable', as measured by Beta-Shapley and LOO values.
         </p>
       </div>
     </div>
@@ -779,8 +803,75 @@
       selector: ".dashboard-btn[onclick='retrainModel()']",
       text: "Once you've made changes, click <b>Retrain Model</b> to update the model with your new settings!",
       arrow: "down"
+    },
+    {
+      module: "betashap",
+      selector: "#alphaInput",
+      text: `<b>Alpha (α)</b><br><br>
+      Alpha controls how much the system focuses on small vs. large groups of training examples when deciding what data is important.<br><br>
+      - Higher α (like 16): Focuses more on <b>smaller groups</b> of data. These often give clearer signals about which examples are helpful or harmful.<br>
+      - Lower α (like 1): Spreads attention more evenly across all group sizes, similar to classic Shapley values.<br><br>
+      <b>Try this:</b> Use a higher α if you want to better detect mislabeled or noisy examples. It's especially useful when your training data might contain errors or inconsistencies.<br><br>
+      <b>Note:</b> α = 1 and β = 1 gives classic Shapley. Increasing α while keeping β = 1 gives Beta Shapley that emphasizes smaller, cleaner groups.`,
+      arrow: "down"
+    },
+    {
+      module: "betashap",
+      selector: "#betaInput",
+      text: `<b>Beta (β)</b><br><br>
+      Beta works with Alpha to shape how much different group sizes matter when evaluating data importance.<br><br>
+      - Higher β: Gives more weight to <b>larger groups</b>, which is similar to methods like Leave-One-Out (LOO) -  a method where we check how the model changes if we remove one example at a time.<br>
+      - Lower β (like 1): Puts more emphasis on <b>smaller groups</b>, especially when α is also high.<br><br>
+      <b>Note:</b> If you're not sure what to use, set β = 1. This lets you explore how smaller groups affect learning, which is often helpful for finding mislabeled or unique examples.<br>`,
+      arrow: "down"
+    },
+    {
+      module: "betashap",
+      selector: "#permInput",
+      text: `<b># Permutations</b><br><br>
+      This sets how many random combinations of data are used to estimate how important each example is.<br><br>
+      - More permutations = more accurate results, but slower.<br>
+      - Fewer permutations = faster, but may be less precise.<br><br>`,
+      arrow: "down"
+    },
+    {
+      module: "betashap",
+      selector: "#utilityInput",
+      text: `<b>Utility Function</b><br><br>
+      The utility function tells the system what counts as a "good" model. This affects how it decides which examples were most useful during training.<br><br>
+      - <b>Accuracy</b>: Focuses on how often the model gets the right answer. Good when all mistakes matter equally.<br>
+      - <b>F1 Score</b>: Balances catching correct answers and avoiding false alarms. Useful when you're dealing with rare events or imbalanced classes.<br>
+      - <b>AUC</b>: Measures how well the model separates two groups (like spam vs. not spam). Good when you care about ranking or prioritizing predictions.<br>
+      - <b>Log-likelihood</b>: Looks at how confident the model is in its predictions. Helpful when the model gives probability scores and you care about certainty.<br><br>.`,
+      arrow: "down"
+    },
+    {
+      module: "betashap",
+      selector: "button[type='submit']",
+      text: `Click <b>Save Beta Shapley Params</b> to apply your changes. The model will use your new settings the next time you view the leaderboard or explanation results.`,
+      arrow: "down"
+    },
+    {
+      module: "leaderboard",
+      selector: "#tab-leaderboard",
+      text: `<b>Data Leaderboard Tab</b><br><br>
+      This tab shows the <b>most helpful or harmful training examples</b> based on their contribution to the model's performance. It uses Beta Shapley and Leave-One-Out scoring to rank them.`,
+      arrow: "down"
+    },
+    {
+      module: "leaderboard",
+      selector: "#leaderboard-table-container",
+      text: `<b>Leaderboard Table</b><br><br>
+      Each row shows a training example along with:<br>
+      - Its Beta Shapley and LOO (Leave-One-Out) value<br>
+      - Its category<br>
+      - A text preview<br><br>
+      Click a row to see the full text. High values mean the example had a strong influence - either helping the model improve or hurting it.`,
+      arrow: "down"
     }
+
   ];
+
 
   let tutorialStep = 0;
 
@@ -884,8 +975,11 @@
     showWidget('predict');
   } else if (step.module === "feature") {
     showWidget('feature');
+  } else if (step.module === "betashap") {
+    showWidget('betashap');
+  } else if (step.module === "leaderboard") {
+    showWidget('leaderboard');
   }
-
   
 
   const elem = document.querySelector(step.selector);
@@ -1001,6 +1095,20 @@
     }
   }
 
+
+  // adding here is add to innerhtml for now
+
+  const infoExplanations = {};
+    tutorialSteps.forEach(step => {
+      if (step.selector) infoExplanations[step.selector] = step.text;
+  });
+
+  function showInfoModalForSelector(selector) {
+    const explanation = infoExplanations[selector] || "No explanation available.";
+    document.getElementById('modalLabel').innerHTML = "Info";
+    document.getElementById('modalText').innerHTML = explanation;
+    document.getElementById('articleModal').classList.remove('hidden');
+   }
 
     async function loadLeaderboard() {
       const res = await fetch('/leaderboard');
@@ -1365,7 +1473,61 @@
       loadModelAccuracy();
     });
 
+    document.getElementById('load-leaderboard-btn').addEventListener('click', async () => {
+      const res = await fetch('/static/leaderboard.csv');
+      const csvText = await res.text();
 
+      const parsed = Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: true
+      });
+
+      const leaderboardData = parsed.data.map(row => ({
+        beta_shapley: row['beta_shapley'] !== undefined ? Number(row['beta_shapley']) : null,
+        loo: row['loo'] !== undefined ? Number(row['loo']) : null,
+        label: row['label'] || '',
+        text: row['text'] || ''
+      }));
+
+      renderLeaderboardTable(leaderboardData);
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const added = new Set();
+      tutorialSteps.forEach(step => {
+        if (!step.selector || added.has(step.selector)) return;
+        added.add(step.selector);
+
+        const elem = document.querySelector(step.selector);
+        if (!elem) return;
+        if (elem.parentElement.querySelector('.info-btn')) return;
+
+        const infoBtn = document.createElement('button');
+        infoBtn.type = 'button';
+        infoBtn.className = 'info-btn';
+        infoBtn.innerText = 'i';
+        infoBtn.title = 'More info';
+        infoBtn.style.marginLeft = '6px';
+        infoBtn.setAttribute('data-info-selector', step.selector);
+
+        if (elem.tagName === 'INPUT' || elem.tagName === 'SELECT' || elem.tagName === 'TEXTAREA') {
+          let label = document.querySelector(`label[for='${elem.id}']`);
+          if (label) label.appendChild(infoBtn);
+          else elem.parentElement.insertBefore(infoBtn, elem.nextSibling);
+        } else {
+          elem.appendChild(infoBtn);
+        }
+      });
+
+      document.querySelectorAll('.info-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const selector = btn.getAttribute('data-info-selector');
+          showInfoModalForSelector(selector);
+        });
+      });
+    });
   </script>
 </body>
 </html>
