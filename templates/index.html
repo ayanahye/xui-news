@@ -686,7 +686,7 @@
 
     <div class="widget-content" id="widget-leaderboard" style="display:none;">
       <div class="feature-eng-section">
-        <h2>Training Examples Sorted by Shapley Value (not done)</h2>
+        <h2>Training Examples (click on a column in the leaderboard to sort)</h2>
         <button class="dashboard-btn" id="load-leaderboard-btn" style="margin-bottom: 12px;">
           Load Leaderboard
         </button>
@@ -694,7 +694,7 @@
           <!-- js will be populated here -->
         </div>
         <p style="margin-top:12px; color:#4a3fbf; font-size:1.05em;">
-          These are the training articles that are considered the most 'valuable', as measured by Beta-Shapley and LOO values.
+          These are the training articles that are considered the most 'valuable', as measured by Beta-Shapley, LOO, DVRL, and DataOob values.
         </p>
       </div>
     </div>
@@ -1116,20 +1116,35 @@
       renderLeaderboardTable(leaderboardData);
     }
 
+    let currentSort = { column: null, asc: true };
+    let leaderboardDataGlobal = [];
+
     function renderLeaderboardTable(data) {
+      leaderboardDataGlobal = data;
       const container = document.getElementById('leaderboard-table-container');
       if (!data || !data.length) {
         container.innerHTML = '<em>No leaderboard data available.</em>';
         return;
       }
+      let showDVRL = 'DVRL' in data[0];
+      let showDataOob = 'DataOob' in data[0];
+
+      function th(label, col) {
+        let arrow = '';
+        if (currentSort.column === col) arrow = currentSort.asc ? ' ▲' : ' ▼';
+        return `<th style="cursor:pointer;" data-sort="${col}">${label}${arrow}</th>`;
+      }
+
       let html = `<table class="leaderboard-table" style="width:100%; border-collapse:collapse;">
         <thead>
           <tr style="background:#e3e7ff;">
-            <th>#</th>
-            <th>Beta Shapley</th>
-            <th>LOO</th>
-            <th>Category</th>
-            <th>Text Preview</th>
+            ${th('#', 'index')}
+            ${th('Beta Shapley', 'beta_shapley')}
+            ${th('LOO', 'loo')}
+            ${showDVRL ? th('DVRL', 'DVRL') : ''}
+            ${showDataOob ? th('DataOob', 'DataOob') : ''}
+            ${th('Category', 'label')}
+            ${th('Text Preview', 'text')}
           </tr>
         </thead>
         <tbody>`;
@@ -1138,6 +1153,8 @@
           <td style="text-align:center;">${i + 1}</td>
           <td style="color:#b35dff; font-weight:600;">${item.beta_shapley !== null ? item.beta_shapley.toFixed(5) : "N/A"}</td>
           <td style="color:#ff7f0e; font-weight:600;">${item.loo !== null ? item.loo.toFixed(5) : "N/A"}</td>
+          ${showDVRL ? `<td style="color:#4a3fbf;">${item.DVRL !== undefined && item.DVRL !== null ? item.DVRL.toFixed(5) : "N/A"}</td>` : ''}
+          ${showDataOob ? `<td style="color:#4a3fbf;">${item.DataOob !== undefined && item.DataOob !== null ? item.DataOob.toFixed(5) : "N/A"}</td>` : ''}
           <td>${item.label}</td>
           <td>${item.text.slice(0, 60)}...</td>
         </tr>`;
@@ -1150,6 +1167,32 @@
         row.addEventListener('click', () => {
           const idx = row.getAttribute('data-index');
           showArticleModal(data[idx]);
+        });
+      });
+
+      container.querySelectorAll('th[data-sort]').forEach(thElem => {
+        thElem.addEventListener('click', () => {
+          const col = thElem.getAttribute('data-sort');
+          if (currentSort.column === col) {
+            currentSort.asc = !currentSort.asc;
+          } else {
+            currentSort.column = col;
+            currentSort.asc = true;
+          }
+          let sorted = [...leaderboardDataGlobal];
+          sorted.sort((a, b) => {
+            let aVal = a[col], bVal = b[col];
+            if (col === 'text' || col === 'label') {
+              aVal = aVal || '';
+              bVal = bVal || '';
+              return currentSort.asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            } else {
+              aVal = aVal !== undefined && aVal !== null ? aVal : -Infinity;
+              bVal = bVal !== undefined && bVal !== null ? bVal : -Infinity;
+              return currentSort.asc ? aVal - bVal : bVal - aVal;
+            }
+          });
+          renderLeaderboardTable(sorted);
         });
       });
     }
@@ -1474,7 +1517,7 @@
     });
 
     document.getElementById('load-leaderboard-btn').addEventListener('click', async () => {
-      const res = await fetch('/static/leaderboard.csv');
+      const res = await fetch('/static/merged_leaderboard_results.csv');
       const csvText = await res.text();
 
       const parsed = Papa.parse(csvText, {
@@ -1483,15 +1526,22 @@
         dynamicTyping: true
       });
 
-      const leaderboardData = parsed.data.map(row => ({
-        beta_shapley: row['beta_shapley'] !== undefined ? Number(row['beta_shapley']) : null,
-        loo: row['loo'] !== undefined ? Number(row['loo']) : null,
-        label: row['label'] || '',
-        text: row['text'] || ''
-      }));
+      const leaderboardData = parsed.data.map(row => {
+        const entry = {
+          beta_shapley: row['beta_shapley'] !== undefined ? Number(row['beta_shapley']) : null,
+          loo: row['loo'] !== undefined ? Number(row['loo']) : null,
+          label: row['label'] || '',
+          text: row['text'] || ''
+        };
+        if ('DVRL' in row) entry.DVRL = row['DVRL'] !== undefined ? Number(row['DVRL']) : null;
+        if ('DataOob' in row) entry.DataOob = row['DataOob'] !== undefined ? Number(row['DataOob']) : null;
+         console.log(entry);
+        return entry;
+      });
 
       renderLeaderboardTable(leaderboardData);
     });
+
 
     window.addEventListener('DOMContentLoaded', () => {
       const added = new Set();
